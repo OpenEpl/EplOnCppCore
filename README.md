@@ -2,7 +2,7 @@
 
 # QIQI.EplOnCpp.Core
 [![NuGet](https://img.shields.io/nuget/v/QIQI.EplOnCpp.Core.svg)](https://www.nuget.org/packages/QIQI.EplOnCpp.Core)   
-命名空间：`QIQI.EProjectFile`  
+命名空间：`QIQI.EplOnCpp.Core`  
 
 # 介绍
 EplOnCpp是基于Cpp构建的Epl语言编译环境，用于支持x64程序编写及实现特殊功能  
