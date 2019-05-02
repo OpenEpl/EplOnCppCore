@@ -8,6 +8,7 @@ namespace QIQI.EplOnCpp.Core.Expressions
         public CodeConverter C { get; }
         public ProjectConverter P => C.P;
         public CodeWriter Writer => C.Writer;
+        public ILoggerWithContext Logger => P.Logger;
 
         public EocExpression(CodeConverter c)
         {

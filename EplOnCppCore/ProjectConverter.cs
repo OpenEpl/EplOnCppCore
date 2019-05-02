@@ -43,6 +43,19 @@ namespace QIQI.EplOnCpp.Core
             { EplSystemId.DataType_String , CppTypeName_String }
         };
 
+        public static readonly EocCmdInfo ErrorEocCmdInfo = new EocCmdInfo()
+        {
+            ReturnDataType = CppTypeName_SkipCheck,
+            CppName = "EOC_ERROR_CMD",
+            Parameters = new List<EocParameterInfo>() {
+                new EocParameterInfo() {
+                    DataType = CppTypeName_SkipCheck,
+                    VarArgs = true,
+                    Optional = true
+                }
+            }
+        };
+
         public static void Convert(EProjectFile.EProjectFile source, string dest, EocProjectType projectType = EocProjectType.Console, string projectNamespace = "e::user")
         {
             new ProjectConverter(source, projectType, projectNamespace).Generate(dest);
@@ -72,6 +85,7 @@ namespace QIQI.EplOnCpp.Core
         public string ConstantNamespace { get; }
         public string GlobalNamespace { get; }
         public EProjectFile.EProjectFile Source { get; }
+        public ILoggerWithContext Logger { get; }
 
         public enum EocProjectType
         {
@@ -79,12 +93,15 @@ namespace QIQI.EplOnCpp.Core
             Console
         }
 
-        private ProjectConverter(EProjectFile.EProjectFile source, EocProjectType projectType = EocProjectType.Console, string projectNamespace = "e::user")
+        private ProjectConverter(EProjectFile.EProjectFile source, EocProjectType projectType = EocProjectType.Console, string projectNamespace = "e::user", ILoggerWithContext logger = null)
         {
+            this.Logger = logger ?? new NullLoggerWithContext();
+
             if (source == null)
             {
                 throw new ArgumentNullException(nameof(source));
             }
+
             this.IdToNameMap = new IdToNameMap(source.Code, source.Resource, source.LosableSection);
             this.ClassIdMap = source.Code.Classes.ToDictionary(x => x.Id);
             this.MethodIdMap = source.Code.Methods.ToDictionary(x => x.Id);
@@ -115,8 +132,9 @@ namespace QIQI.EplOnCpp.Core
                     {
                         return LibInfo.Load(x);
                     }
-                    catch (Exception)
+                    catch (Exception ex)
                     {
+                        Logger.Warn("加载fne信息失败，请检查易语言环境，支持库：{0}，异常信息：{1}", x.Name, ex);
                         return null;
                     }
                 }).ToArray();
@@ -127,8 +145,9 @@ namespace QIQI.EplOnCpp.Core
                     {
                         return EocLibInfo.Load(x);
                     }
-                    catch (Exception)
+                    catch (Exception ex)
                     {
+                        Logger.Warn("加载eoc库info.json失败，请检查eoc环境，支持库：{0}，异常信息：{1}", x.Name, ex);
                         return null;
                     }
                 }).ToArray();
@@ -731,35 +750,40 @@ namespace QIQI.EplOnCpp.Core
 
         private void ImplementMethod(CodeWriter writer, ClassInfo classItem, MethodInfo item)
         {
-            var isClassMember = EplSystemId.GetType(classItem.Id) == EplSystemId.Type_Class;
-            var name = GetUserDefinedName_SimpleCppName(item.Id);
-            var clsRawName = "raw_" + GetUserDefinedName_SimpleCppName(classItem.Id);
-            var eocCmdInfo = GetEocCmdInfo(item);
-            var paramName = item.Parameters.Select(x => GetUserDefinedName_SimpleCppName(x.Id)).ToArray();
+            using (new LoggerContextHelper(Logger)
+                .Set("class", IdToNameMap.GetUserDefinedName(classItem.Id))
+                .Set("method", IdToNameMap.GetUserDefinedName(item.Id)))
+            {
+                var isClassMember = EplSystemId.GetType(classItem.Id) == EplSystemId.Type_Class;
+                var name = GetUserDefinedName_SimpleCppName(item.Id);
+                var clsRawName = "raw_" + GetUserDefinedName_SimpleCppName(classItem.Id);
+                var eocCmdInfo = GetEocCmdInfo(item);
+                var paramName = item.Parameters.Select(x => GetUserDefinedName_SimpleCppName(x.Id)).ToArray();
 
-            writer.NewLine();
-            writer.Write(eocCmdInfo.ReturnDataType == null ? "void" : eocCmdInfo.ReturnDataType.ToString());
-            writer.Write(" __stdcall ");
-            if (isClassMember)
-            {
-                writer.Write(clsRawName);
-                writer.Write("::");
-            }
-            writer.Write(name);
-            writer.Write("(");
-            for (int i = 0; i < eocCmdInfo.Parameters.Count; i++)
-            {
-                if (i != 0)
-                    writer.Write(", ");
-                writer.Write(GetParameterTypeString(eocCmdInfo.Parameters[i]));
-                writer.Write(" ");
-                writer.Write(paramName[i]);
-            }
-            writer.Write(")");
-            using (writer.NewBlock())
-            {
-                DefineLocalVariable(writer, item.Variables);
-                new CodeConverter(this, writer, classItem, item).Generate();
+                writer.NewLine();
+                writer.Write(eocCmdInfo.ReturnDataType == null ? "void" : eocCmdInfo.ReturnDataType.ToString());
+                writer.Write(" __stdcall ");
+                if (isClassMember)
+                {
+                    writer.Write(clsRawName);
+                    writer.Write("::");
+                }
+                writer.Write(name);
+                writer.Write("(");
+                for (int i = 0; i < eocCmdInfo.Parameters.Count; i++)
+                {
+                    if (i != 0)
+                        writer.Write(", ");
+                    writer.Write(GetParameterTypeString(eocCmdInfo.Parameters[i]));
+                    writer.Write(" ");
+                    writer.Write(paramName[i]);
+                }
+                writer.Write(")");
+                using (writer.NewBlock())
+                {
+                    DefineLocalVariable(writer, item.Variables);
+                    new CodeConverter(this, writer, classItem, item).Generate();
+                }
             }
         }
 
@@ -1294,8 +1318,36 @@ namespace QIQI.EplOnCpp.Core
                     return GetEocCmdInfo(id);
 
                 default:
-                    var name = Libs[libId].Cmd[id].Name;
-                    return EocLibs[libId].Cmd[name];
+                    try
+                    {
+                        if (Libs[libId] == null)
+                        {
+                            Logger.Error("缺少fne信息：{0}", this.Source.Code.Libraries[libId].Name);
+                            return ErrorEocCmdInfo;
+                        }
+                        if (Libs[libId].Cmd.Length >= id)
+                        {
+                            Logger.Error("fne信息中缺少命令信息，请检查版本是否匹配【Lib：{0}，CmdId：{1}】", Libs[libId].Name, id);
+                            return ErrorEocCmdInfo;
+                        }
+                        var name = Libs[libId].Cmd[id].Name;
+                        if (EocLibs[libId] == null)
+                        {
+                            Logger.Error("{0} 库缺少Eoc识别信息，可能是EOC不支持该库或没有安装相应Eoc库", Libs[libId].Name);
+                            return ErrorEocCmdInfo;
+                        }
+                        if (!EocLibs[libId].Cmd.ContainsKey(name))
+                        {
+                            Logger.Error("{0} 命令缺少Eoc识别信息，可能是EOC不支持该命令或没有安装相应Eoc库", name);
+                            return ErrorEocCmdInfo;
+                        }
+                        return EocLibs[libId].Cmd[name];
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Error("获取Eoc命令信息时出现未知错误【Lib：{0}，CmdId：{1}】：{2}", Libs[libId].Name, id, ex);
+                        return ErrorEocCmdInfo;
+                    }
             }
         }
 

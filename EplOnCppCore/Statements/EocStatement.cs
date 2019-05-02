@@ -8,6 +8,7 @@ namespace QIQI.EplOnCpp.Core.Statements
         public CodeConverter C { get; }
         public ProjectConverter P => C.P;
         public CodeWriter Writer => C.Writer;
+        public ILoggerWithContext Logger => P.Logger;
 
         public EocStatement(CodeConverter c)
         {

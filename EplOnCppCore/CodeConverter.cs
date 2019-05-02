@@ -14,6 +14,7 @@ namespace QIQI.EplOnCpp.Core
         public CodeWriter Writer { get; }
         public ClassInfo ClassItem { get; }
         public MethodInfo MethodItem { get; }
+        public ILoggerWithContext Logger => P.Logger;
         public MethodParameterInfo[] Parameters { get; }
         public Dictionary<int, MethodParameterInfo> ParamIdMap { get; }
         public Dictionary<int, LocalVariableInfo> LocalIdMap { get; }
@@ -72,7 +73,6 @@ namespace QIQI.EplOnCpp.Core
                     }
                 }
             }
-            //Convert(this.StatementBlock);
             EocStatementBlock.Translate(this, StatementBlock).WriteTo();
         }
 
