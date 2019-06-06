@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "EplOnCppCLI": {
+      "commandName": "Project",
+      "commandLineArgs": "convert D:\\1.e D:\\1_EplOnCpp --type console --force"
+    }
+  }
+}
