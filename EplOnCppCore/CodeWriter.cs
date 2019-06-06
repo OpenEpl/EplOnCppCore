@@ -128,6 +128,13 @@ namespace QIQI.EplOnCpp.Core
 
         public void WriteLiteral(string value)
         {
+            streamWriter.Write("EOC_STR_CONST(");
+            WriteCppStringLiteral(value);
+            streamWriter.Write(")");
+        }
+
+        public void WriteCppStringLiteral(string value)
+        {
             streamWriter.Write('"');
             streamWriter.Write(value.Replace("\\", @"\\").Replace("\r", @"\r").Replace("\n", @"\n").Replace("\t", @"\t"));
             streamWriter.Write('"');
