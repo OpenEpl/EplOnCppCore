@@ -1325,7 +1325,7 @@ namespace QIQI.EplOnCpp.Core
                             Logger.Error("缺少fne信息：{0}", this.Source.Code.Libraries[libId].Name);
                             return ErrorEocCmdInfo;
                         }
-                        if (Libs[libId].Cmd.Length >= id)
+                        if (Libs[libId].Cmd.Length < id)
                         {
                             Logger.Error("fne信息中缺少命令信息，请检查版本是否匹配【Lib：{0}，CmdId：{1}】", Libs[libId].Name, id);
                             return ErrorEocCmdInfo;
