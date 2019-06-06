@@ -25,7 +25,7 @@ namespace QIQI.EplOnCpp.Core.Expressions
         public override void WriteTo()
         {
             Writer.Write("EOC_STR_CONST(");
-            Writer.WriteStringLiteral(Value);
+            Writer.WriteLiteral(Value);
             Writer.Write(")");
         }
     }

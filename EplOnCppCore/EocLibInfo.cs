@@ -4,7 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Reflection;
-
+using System.Linq;
 namespace QIQI.EplOnCpp.Core
 {
     public class EocLibInfo
@@ -13,6 +13,22 @@ namespace QIQI.EplOnCpp.Core
         {
             var curLibInfoPath = Path.Combine(EocEnv.LibPath, refInfo.FileName);
             var result = JsonConvert.DeserializeObject<EocLibInfo>(File.OpenText(Path.Combine(curLibInfoPath, "info.json")).ReadToEnd());
+
+            if (result.Constant != null)
+            {
+                foreach (var item in result.Constant.Values)
+                {
+                    item.Normalize();
+                }
+            }
+            if (result.Enum != null)
+            {
+                foreach (var item in result.Enum.Values.SelectMany(x => x.Values))
+                {
+                    item.Normalize();
+                }
+            }
+
             if (!string.IsNullOrEmpty(result.SuperTemplate))
             {
                 try

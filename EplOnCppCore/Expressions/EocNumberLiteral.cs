@@ -39,16 +39,15 @@ namespace QIQI.EplOnCpp.Core.Expressions
             double v = Value;
             if ((int)v == v)
             {
-                Writer.Write(((int)v).ToString());
+                Writer.WriteLiteral((int)v);
             }
             else if ((long)v == v)
             {
-                Writer.Write(((long)v).ToString());
-                Writer.Write("i64");
+                Writer.WriteLiteral((long)v);
             }
             else
             {
-                Writer.Write(v.ToString());
+                Writer.WriteLiteral(v);
             }
         }
     }

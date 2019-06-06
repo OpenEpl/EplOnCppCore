@@ -26,7 +26,107 @@ namespace QIQI.EplOnCpp.Core
             streamWriter.Write(value);
         }
 
-        public void WriteStringLiteral(string value)
+        public void WriteLiteral(object value)
+        {
+            switch (value)
+            {
+                case byte v:
+                    WriteLiteral(v);
+                    break;
+                case short v:
+                    WriteLiteral(v);
+                    break;
+                case int v:
+                    WriteLiteral(v);
+                    break;
+                case long v:
+                    WriteLiteral(v);
+                    break;
+                case IntPtr v:
+                    WriteLiteral(v);
+                    break;
+                case float v:
+                    WriteLiteral(v);
+                    break;
+                case double v:
+                    WriteLiteral(v);
+                    break;
+                case bool v:
+                    WriteLiteral(v);
+                    break;
+                case string v:
+                    WriteLiteral(v);
+                    break;
+                default:
+                    throw new ArgumentException(nameof(value));
+            }
+        }
+
+        public void WriteLiteral(byte value)
+        {
+            streamWriter.Write("UINT8_C(");
+            streamWriter.Write(value);
+            streamWriter.Write(")");
+        }
+
+        public void WriteLiteral(short value)
+        {
+            streamWriter.Write("INT16_C(");
+            streamWriter.Write(value);
+            streamWriter.Write(")");
+        }
+
+        public void WriteLiteral(int value)
+        {
+            streamWriter.Write(value);
+        }
+
+        public void WriteLiteral(long value)
+        {
+            streamWriter.Write("INT64_C(");
+            streamWriter.Write(value);
+            streamWriter.Write(")");
+        }
+        public void WriteLiteral(IntPtr value)
+        {
+            streamWriter.Write("intptr_t(");
+            try
+            {
+                streamWriter.Write(value.ToInt32());
+            }
+            catch (OverflowException)
+            {
+                streamWriter.Write(value.ToInt64());
+                streamWriter.Write("ll");
+            }
+            streamWriter.Write(")");
+        }
+        public void WriteLiteral(float value)
+        {
+            streamWriter.Write(value.ToString("G9"));
+            streamWriter.Write("f");
+        }
+        public void WriteLiteral(double value)
+        {
+            long lv = (long)value;
+            if (lv == value)
+            {
+                streamWriter.Write(lv);
+                streamWriter.Write(".0");
+            }
+            else
+            {
+                streamWriter.Write("double(");
+                streamWriter.Write(value.ToString("G17"));
+                streamWriter.Write(")");
+            }
+        }
+        public void WriteLiteral(bool value)
+        {
+            streamWriter.Write(value ? "true" : "false");
+        }
+
+        public void WriteLiteral(string value)
         {
             streamWriter.Write('"');
             streamWriter.Write(value.Replace("\\", @"\\").Replace("\r", @"\r").Replace("\n", @"\n").Replace("\t", @"\t"));

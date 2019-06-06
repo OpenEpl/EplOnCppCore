@@ -1115,7 +1115,7 @@ namespace QIQI.EplOnCpp.Core
                     {
                         writer.NewLine();
                         writer.Write("return EOC_STR_CONST(");
-                        writer.WriteStringLiteral(v);
+                        writer.WriteLiteral(v);
                         writer.Write(");");
                     }
                     break;

@@ -1,4 +1,5 @@
 ﻿using QIQI.EProjectFile.Expressions;
+using System;
 
 namespace QIQI.EplOnCpp.Core.Expressions
 {
@@ -30,14 +31,18 @@ namespace QIQI.EplOnCpp.Core.Expressions
 
         public override void WriteTo()
         {
-            if (string.IsNullOrWhiteSpace(EocConstantInfo.Getter))
+            if (!string.IsNullOrWhiteSpace(EocConstantInfo.Getter))
+            {
+                Writer.Write(EocConstantInfo.Getter);
+                Writer.Write("()");
+            }
+            else if(!string.IsNullOrWhiteSpace(EocConstantInfo.CppName))
             {
                 Writer.Write(EocConstantInfo.CppName);
             }
             else
             {
-                Writer.Write(EocConstantInfo.Getter);
-                Writer.Write("()");
+                Writer.WriteLiteral(EocConstantInfo.Value);
             }
         }
     }

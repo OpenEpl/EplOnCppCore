@@ -24,7 +24,7 @@ namespace QIQI.EplOnCpp.Core.Expressions
 
         public override void WriteTo()
         {
-            Writer.Write(Value ? "true" : "false");
+            Writer.WriteLiteral(Value);
         }
     }
 }

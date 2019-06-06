@@ -34,6 +34,12 @@ namespace QIQI.EplOnCpp.Core.Expressions
 
         public abstract CppTypeName GetResultType();
 
+        public virtual bool TryGetConstValue(out object value)
+        {
+            value = null;
+            return false;
+        }
+
         public static EocExpression Translate(CodeConverter C, Expression expr)
         {
             switch (expr)
