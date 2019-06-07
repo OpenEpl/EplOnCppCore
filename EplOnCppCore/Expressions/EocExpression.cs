@@ -39,6 +39,15 @@ namespace QIQI.EplOnCpp.Core.Expressions
             value = null;
             return false;
         }
+        public virtual bool TryGetConstValueWithCast(CppTypeName cast, out object value)
+        {
+            if (!TryGetConstValue(out value))
+                return false;
+            var type = ProjectConverter.GetConstValueType(value);
+            if (type == cast)
+                return true; //FIXME 类型自动转换
+            return false;
+        }
 
         public static EocExpression Translate(CodeConverter C, Expression expr)
         {

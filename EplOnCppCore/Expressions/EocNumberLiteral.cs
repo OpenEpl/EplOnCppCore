@@ -1,4 +1,5 @@
 ﻿using QIQI.EProjectFile.Expressions;
+using System;
 
 namespace QIQI.EplOnCpp.Core.Expressions
 {
@@ -17,38 +18,36 @@ namespace QIQI.EplOnCpp.Core.Expressions
 
         public double Value { get; }
 
-        public override CppTypeName GetResultType()
+        public override bool TryGetConstValue(out object value)
         {
             double v = Value;
             if ((int)v == v)
             {
-                return ProjectConverter.CppTypeName_Int;
+                value = (int)v;
             }
             else if ((long)v == v)
             {
-                return ProjectConverter.CppTypeName_Long;
+                value = (long)v;
             }
             else
             {
-                return ProjectConverter.CppTypeName_Double;
+                value = v;
             }
+            return true;
+        }
+
+        public override CppTypeName GetResultType()
+        {
+            if (!TryGetConstValue(out var v))
+                throw new Exception();
+            return ProjectConverter.GetConstValueType(v);
         }
 
         public override void WriteTo()
         {
-            double v = Value;
-            if ((int)v == v)
-            {
-                Writer.WriteLiteral((int)v);
-            }
-            else if ((long)v == v)
-            {
-                Writer.WriteLiteral((long)v);
-            }
-            else
-            {
-                Writer.WriteLiteral(v);
-            }
+            if (!TryGetConstValue(out var v))
+                throw new Exception();
+            Writer.WriteLiteral(v);
         }
     }
 }

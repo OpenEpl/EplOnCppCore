@@ -1,5 +1,6 @@
 ﻿using QIQI.EplOnCpp.Core.Expressions;
 using QIQI.EProjectFile.Statements;
+using QIQI.EProjectFile;
 
 namespace QIQI.EplOnCpp.Core.Statements
 {
@@ -8,29 +9,34 @@ namespace QIQI.EplOnCpp.Core.Statements
         public static EocExpressionStatement Translate(CodeConverter C, ExpressionStatement stat)
         {
             if (stat == null) return null;
-            return new EocExpressionStatement(
-                C,
-                EocExpression.Translate(C, stat.Expression),
-                stat.Mask,
-                stat.Comment);
+            if (stat.Mask)
+            {
+                return new EocExpressionStatement(
+                    C,
+                    null,
+                    stat.Expression.ToTextCode(C.P.IdToNameMap) + " '" + stat.Comment);
+            }
+            else
+            {
+                return new EocExpressionStatement(
+                    C,
+                    EocExpression.Translate(C, stat.Expression),
+                    stat.Comment);
+            }
         }
 
-        public bool Mark { get; set; }
         public EocExpression Expr { get; set; }
         public string Comment { get; set; }
 
-        public EocExpressionStatement(CodeConverter c, EocExpression expr, bool mark, string comment) : base(c)
+        public EocExpressionStatement(CodeConverter c, EocExpression expr, string comment) : base(c)
         {
             Expr = expr;
-            Mark = mark;
             Comment = comment;
         }
 
         public override void WriteTo()
         {
             Writer.NewLine();
-            if (Mark)
-                Writer.Write("// ");
             if (Expr != null)
             {
                 Expr.WriteTo();

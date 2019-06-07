@@ -25,7 +25,12 @@ namespace QIQI.EplOnCpp.Core.Expressions
 
         public override void WriteTo()
         {
-            Writer.Write($"e::system::datetime({Value.ToOADate()}/*{Value.ToString("yyyyMMddTHHmmss")}*/)");
+            Writer.WriteLiteral(Value);
+        }
+        public override bool TryGetConstValue(out object value)
+        {
+            value = Value;
+            return true;
         }
     }
 }

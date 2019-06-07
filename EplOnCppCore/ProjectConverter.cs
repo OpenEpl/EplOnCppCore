@@ -14,7 +14,6 @@ namespace QIQI.EplOnCpp.Core
     public class ProjectConverter
     {
         public readonly static CppTypeName CppTypeName_Bin = new CppTypeName(false, "e::system::bin");
-
         public readonly static CppTypeName CppTypeName_Bool = new CppTypeName(false, "bool");
         public readonly static CppTypeName CppTypeName_Byte = new CppTypeName(false, "uint8_t");
         public readonly static CppTypeName CppTypeName_DateTime = new CppTypeName(false, "e::system::datetime");
@@ -28,6 +27,36 @@ namespace QIQI.EplOnCpp.Core
         public readonly static CppTypeName CppTypeName_String = new CppTypeName(false, "e::system::string");
         public readonly static CppTypeName CppTypeName_Any = new CppTypeName(false, "e::system::any");
         public readonly static CppTypeName CppTypeName_SkipCheck = CppTypeName.Parse("*");
+
+
+        public static readonly Dictionary<Type, CppTypeName> ConstTypeMap = new Dictionary<Type, CppTypeName>()
+        {
+            { typeof(byte), CppTypeName_Byte },
+            { typeof(short), CppTypeName_Short },
+            { typeof(int), CppTypeName_Int },
+            { typeof(long), CppTypeName_Long },
+            { typeof(float), CppTypeName_Float },
+            { typeof(double), CppTypeName_Double },
+            { typeof(IntPtr), CppTypeName_IntPtr },
+            { typeof(DateTime), CppTypeName_DateTime },
+            { typeof(string), CppTypeName_String },
+            { typeof(bool), CppTypeName_Bool }
+        };
+
+        internal static CppTypeName GetConstValueType(object value)
+        {
+            var type = value.GetType();
+            var isArray = type.IsArray;
+            while (type.IsArray)
+            {
+                type = type.GetElementType();
+            }
+
+            return isArray
+                ? new CppTypeName(false, "e::system::array", new[] { ConstTypeMap[type] })
+                : ConstTypeMap[type];
+        }
+
 
         public static readonly Dictionary<int, CppTypeName> BasicCppTypeNameMap = new Dictionary<int, CppTypeName> {
             { EplSystemId.DataType_Bin , CppTypeName_Bin },
@@ -454,7 +483,9 @@ namespace QIQI.EplOnCpp.Core
                 for (int i = 0; i < Source.Code.Libraries.Length; i++)
                 {
                     LibraryRefInfo item = Source.Code.Libraries[i];
-                    string libCMakeName = EocLibs[i].CMakeName;
+                    string libCMakeName = EocLibs[i]?.CMakeName;
+                    if (string.IsNullOrEmpty(libCMakeName))
+                        continue;
                     writer.WriteLine($"include(${{EOC_LIBS_DIRS}}/{item.FileName}/config.cmake)");
                     writer.WriteLine($"target_include_directories(main PRIVATE ${{{libCMakeName}_INCLUDE_DIRS}})");
                     writer.WriteLine($"target_link_libraries(main ${{{libCMakeName}_LIBRARIES}})");

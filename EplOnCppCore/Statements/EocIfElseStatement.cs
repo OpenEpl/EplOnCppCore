@@ -37,6 +37,28 @@ namespace QIQI.EplOnCpp.Core.Statements
             Writer.NewLine();
             if (Mask)
                 Writer.Write("// ");
+            else if (Condition.TryGetConstValueWithCast(ProjectConverter.CppTypeName_Bool, out var x))
+            {
+                if ((bool)x == true)
+                {
+                    Writer.AddComment(Comment);
+                    using (Writer.NewBlock())
+                    {
+                        BlockOnTrue.WriteTo();
+                    }
+                    return;
+                }
+                else
+                {
+                    Writer.AddComment(Comment);
+                    using (Writer.NewBlock())
+                    {
+                        BlockOnFalse.WriteTo();
+                    }
+                    return;
+                }
+            }
+
             Writer.Write("if (");
             Condition.WriteToWithCast(ProjectConverter.CppTypeName_Bool);
             Writer.Write(")");

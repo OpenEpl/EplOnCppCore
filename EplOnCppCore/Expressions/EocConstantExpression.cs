@@ -45,5 +45,11 @@ namespace QIQI.EplOnCpp.Core.Expressions
                 Writer.WriteLiteral(EocConstantInfo.Value);
             }
         }
+
+        public override bool TryGetConstValue(out object value)
+        {
+            value = EocConstantInfo.Value;
+            return EocConstantInfo.Value != null;
+        }
     }
 }

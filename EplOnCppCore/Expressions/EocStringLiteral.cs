@@ -26,5 +26,10 @@ namespace QIQI.EplOnCpp.Core.Expressions
         {
             Writer.WriteLiteral(Value);
         }
+        public override bool TryGetConstValue(out object value)
+        {
+            value = Value;
+            return true;
+        }
     }
 }

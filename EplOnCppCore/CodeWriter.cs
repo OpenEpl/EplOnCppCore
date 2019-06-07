@@ -51,6 +51,9 @@ namespace QIQI.EplOnCpp.Core
                 case double v:
                     WriteLiteral(v);
                     break;
+                case DateTime v:
+                    WriteLiteral(v);
+                    break;
                 case bool v:
                     WriteLiteral(v);
                     break;
@@ -60,6 +63,15 @@ namespace QIQI.EplOnCpp.Core
                 default:
                     throw new ArgumentException(nameof(value));
             }
+        }
+        public void WriteLiteral(DateTime value)
+        {
+            streamWriter.Write("e::system::datetime(");
+            streamWriter.Write(value.ToOADate().ToString("G17"));
+            streamWriter.Write("/*");
+            streamWriter.Write(value.ToString("yyyyMMddTHHmmss"));
+            streamWriter.Write("*/");
+            streamWriter.Write(")");
         }
 
         public void WriteLiteral(byte value)

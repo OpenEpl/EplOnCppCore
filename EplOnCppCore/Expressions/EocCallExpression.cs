@@ -16,7 +16,7 @@ namespace QIQI.EplOnCpp.Core.Expressions
                 C.P.GetEocCmdInfo(expr),
                 EocExpression.Translate(C, expr.Target),
                 expr.ParamList?.Select(x => EocExpression.Translate(C, x)).ToList(),
-               expr.LibraryId >= 0 ? C.P.EocLibs[expr.LibraryId].SuperTemplateAssembly : null);
+                expr.LibraryId >= 0 ? C.P.EocLibs[expr.LibraryId]?.SuperTemplateAssembly : null);
         }
 
         public EocCallExpression(CodeConverter c, EocCmdInfo cmdInfo, EocExpression target, List<EocExpression> paramList, Assembly superTemplateAssembly = null) : base(c)
