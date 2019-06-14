@@ -22,13 +22,17 @@ namespace QIQI.EplOnCpp.CLI
         [Option("force", Default = false, HelpText = "Set this flag when you want to input *.e file (MUST NOT have any unexamined statements or ECom references)", Required = false)]
         public bool Force { get; set; }
 
+        [Option("debug", Default = false, HelpText = "Set this flag when you want to see debug info", Required = false)]
+        public bool Debug { get; set; }
+
         public int Run()
         {
             var source = new EProjectFile.EProjectFile();
+            var logger = new StreamLoggerWithContext(Console.Out, Console.Error, Debug);
             source.Load(File.OpenRead(Input));
             if (!Force && source.ESystemInfo.FileType != 3)
                 throw new Exception("源文件应为ECom(*.ec)文件");
-            ProjectConverter.Convert(source, Output, Type);
+            new ProjectConverter(source, Type, default, logger).Generate(Output);
             return 0;
         }
     }

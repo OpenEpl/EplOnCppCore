@@ -85,6 +85,14 @@ namespace QIQI.EplOnCpp.Core
             }
         };
 
+        /// <summary>
+        /// 使用<code>new ProjectConverter(...).Generate(...)</code>替代
+        /// </summary>
+        /// <param name="source"></param>
+        /// <param name="dest"></param>
+        /// <param name="projectType"></param>
+        /// <param name="projectNamespace"></param>
+        [Obsolete]
         public static void Convert(EProjectFile.EProjectFile source, string dest, EocProjectType projectType = EocProjectType.Console, string projectNamespace = "e::user")
         {
             new ProjectConverter(source, projectType, projectNamespace).Generate(dest);
@@ -122,7 +130,7 @@ namespace QIQI.EplOnCpp.Core
             Console
         }
 
-        private ProjectConverter(EProjectFile.EProjectFile source, EocProjectType projectType = EocProjectType.Console, string projectNamespace = "e::user", ILoggerWithContext logger = null)
+        public ProjectConverter(EProjectFile.EProjectFile source, EocProjectType projectType = EocProjectType.Console, string projectNamespace = "e::user", ILoggerWithContext logger = null)
         {
             this.Logger = logger ?? new NullLoggerWithContext();
 
@@ -185,7 +193,7 @@ namespace QIQI.EplOnCpp.Core
             this.ProjectType = projectType;
         }
 
-        private void Generate(string dest)
+        public void Generate(string dest)
         {
             if (dest == null)
             {
