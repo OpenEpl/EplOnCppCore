@@ -26,6 +26,10 @@ namespace QIQI.EplOnCpp.Core.Expressions
 
         public override void WriteTo()
         {
+            if (!MemberInfo.Referencable)
+            {
+                Writer.Write("e::system::noRef(");
+            }
             if (MemberInfo.Getter != null)
             {
                 Writer.Write(MemberInfo.Getter);
@@ -34,6 +38,10 @@ namespace QIQI.EplOnCpp.Core.Expressions
             else
             {
                 Writer.Write(MemberInfo.CppName);
+            }
+            if (!MemberInfo.Referencable)
+            {
+                Writer.Write(")");
             }
         }
     }
