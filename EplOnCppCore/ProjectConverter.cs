@@ -184,7 +184,7 @@ namespace QIQI.EplOnCpp.Core
                     }
                     catch (Exception ex)
                     {
-                        Logger.Warn("加载eoc库info.json失败，请检查eoc环境，支持库：{0}，异常信息：{1}", x.Name, ex);
+                        Logger.Warn("加载eoc库信息失败，请检查eoc环境，支持库：{0}，异常信息：{1}", x.Name, ex);
                         return null;
                     }
                 }).ToArray();
