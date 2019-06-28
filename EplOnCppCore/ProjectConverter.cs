@@ -155,6 +155,7 @@ namespace QIQI.EplOnCpp.Core
                 Array.ForEach(item.Variables, x => ClassVarIdMap.Add(x.Id, x));
             }
 
+            projectNamespace = projectNamespace ?? "e::user";
             this.ProjectNamespace = projectNamespace;
             this.TypeNamespace = projectNamespace + "::type";
             this.CmdNamespace = projectNamespace + "::cmd";
@@ -320,7 +321,7 @@ namespace QIQI.EplOnCpp.Core
             {
                 writer.Write("#pragma once");
                 writer.NewLine();
-                writer.Write("#include \"../../stdafx.h\"");
+                writer.Write("#include \"stdafx.h\"");
                 using (writer.NewNamespace(curNamespace))
                 {
                     ImplementGlobalVariable(writer, Source.Code.GlobalVariables);
