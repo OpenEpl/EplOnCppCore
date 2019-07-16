@@ -229,6 +229,8 @@ namespace QIQI.EplOnCpp.Core
                 writer.Write("#include <e/system/basic_type.h>");
                 for (int i = 0; i < Source.Code.Libraries.Length; i++)
                 {
+                    if (EocLibs[i] == null)
+                        continue;
                     LibraryRefInfo item = Source.Code.Libraries[i];
                     writer.NewLine();
                     writer.Write($"#include <e/lib/{item.FileName}/public.h>");
