@@ -32,16 +32,16 @@ namespace QIQI.EplOnCpp.Core.Statements
             return this;
         }
 
-        public override void WriteTo()
+        public override void WriteTo(CodeWriter writer)
         {
             foreach (var item in Case)
             {
                 if (item.Mask)
                 {
-                    using (Writer.NewBlock())
+                    using (writer.NewBlock())
                     {
-                        Writer.AddCommentLine(item.Comment);
-                        item.Block.WriteTo();
+                        writer.AddCommentLine(item.Comment);
+                        item.Block.WriteTo(writer);
                     }
                     return;
                 }
@@ -49,22 +49,22 @@ namespace QIQI.EplOnCpp.Core.Statements
 
             for (int i = 0; i < Case.Count; i++)
             {
-                Writer.NewLine();
-                Writer.Write(i == 0 ? "if" : "else if");
-                Writer.Write(" (");
-                Case[i].Condition.WriteToWithCast(ProjectConverter.CppTypeName_Bool);
-                Writer.Write(")");
-                using (Writer.NewBlock())
+                writer.NewLine();
+                writer.Write(i == 0 ? "if" : "else if");
+                writer.Write(" (");
+                Case[i].Condition.WriteToWithCast(writer, ProjectConverter.CppTypeName_Bool);
+                writer.Write(")");
+                using (writer.NewBlock())
                 {
-                    Writer.AddCommentLine(Case[i].Comment);
-                    Case[i].Block.WriteTo();
+                    writer.AddCommentLine(Case[i].Comment);
+                    Case[i].Block.WriteTo(writer);
                 }
             }
-            Writer.NewLine();
-            Writer.Write("else");
-            using (Writer.NewBlock())
+            writer.NewLine();
+            writer.Write("else");
+            using (writer.NewBlock())
             {
-                DefaultBlock.WriteTo();
+                DefaultBlock.WriteTo(writer);
             }
         }
 

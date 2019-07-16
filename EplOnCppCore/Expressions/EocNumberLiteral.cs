@@ -43,11 +43,11 @@ namespace QIQI.EplOnCpp.Core.Expressions
             return ProjectConverter.GetConstValueType(v);
         }
 
-        public override void WriteTo()
+        public override void WriteTo(CodeWriter writer)
         {
             if (!TryGetConstValue(out var v))
                 throw new Exception();
-            Writer.WriteLiteral(v);
+            writer.WriteLiteral(v);
         }
     }
 }

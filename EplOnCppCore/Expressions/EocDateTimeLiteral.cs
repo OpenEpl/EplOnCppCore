@@ -23,9 +23,9 @@ namespace QIQI.EplOnCpp.Core.Expressions
             return ProjectConverter.CppTypeName_DateTime;
         }
 
-        public override void WriteTo()
+        public override void WriteTo(CodeWriter writer)
         {
-            Writer.WriteLiteral(Value);
+            writer.WriteLiteral(Value);
         }
         public override bool TryGetConstValue(out object value)
         {

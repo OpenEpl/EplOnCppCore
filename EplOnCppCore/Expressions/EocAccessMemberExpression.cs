@@ -24,24 +24,24 @@ namespace QIQI.EplOnCpp.Core.Expressions
             return MemberInfo.DataType;
         }
 
-        public override void WriteTo()
+        public override void WriteTo(CodeWriter writer)
         {
             if (!MemberInfo.Referencable)
             {
-                Writer.Write("e::system::noRef(");
+                writer.Write("e::system::noRef(");
             }
             if (MemberInfo.Getter != null)
             {
-                Writer.Write(MemberInfo.Getter);
-                Writer.Write("()");
+                writer.Write(MemberInfo.Getter);
+                writer.Write("()");
             }
             else
             {
-                Writer.Write(MemberInfo.CppName);
+                writer.Write(MemberInfo.CppName);
             }
             if (!MemberInfo.Referencable)
             {
-                Writer.Write(")");
+                writer.Write(")");
             }
         }
     }

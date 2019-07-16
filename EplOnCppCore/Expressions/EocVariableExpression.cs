@@ -58,7 +58,7 @@ namespace QIQI.EplOnCpp.Core.Expressions
             throw new Exception("未知变量访问：" + P.IdToNameMap.GetUserDefinedName(VariableInfo.Id));
         }
 
-        public override void WriteTo()
+        public override void WriteTo(CodeWriter writer)
         {
             var name = P.GetUserDefinedName_SimpleCppName(VariableInfo.Id);
             switch (VariableInfo)
@@ -66,34 +66,34 @@ namespace QIQI.EplOnCpp.Core.Expressions
                 case MethodParameterInfo v:
                     if (v.OptionalParameter)
                     {
-                        Writer.Write("eoc_value_");
+                        writer.Write("eoc_value_");
                     }
-                    Writer.Write(name);
+                    writer.Write(name);
                     break;
 
                 case LocalVariableInfo v:
-                    Writer.Write(name);
+                    writer.Write(name);
                     break;
 
                 case ClassVariableInfo v:
                     if (EplSystemId.GetType(C.ClassItem.Id) == EplSystemId.Type_Class)
                     {
-                        Writer.Write("this->");
+                        writer.Write("this->");
                     }
                     else
                     {
-                        Writer.Write(P.CmdNamespace);
-                        Writer.Write("::");
-                        Writer.Write(P.GetUserDefinedName_SimpleCppName(C.ClassItem.Id));
-                        Writer.Write("::");
+                        writer.Write(P.CmdNamespace);
+                        writer.Write("::");
+                        writer.Write(P.GetUserDefinedName_SimpleCppName(C.ClassItem.Id));
+                        writer.Write("::");
                     }
-                    Writer.Write(name);
+                    writer.Write(name);
                     break;
 
                 case GlobalVariableInfo v:
-                    Writer.Write(P.GlobalNamespace);
-                    Writer.Write("::");
-                    Writer.Write(name);
+                    writer.Write(P.GlobalNamespace);
+                    writer.Write("::");
+                    writer.Write(name);
                     break;
 
                 default:

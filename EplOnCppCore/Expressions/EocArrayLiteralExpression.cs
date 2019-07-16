@@ -33,12 +33,12 @@ namespace QIQI.EplOnCpp.Core.Expressions
             return ProjectConverter.CppTypeName_Bin;
         }
 
-        public override void WriteTo()
+        public override void WriteTo(CodeWriter writer)
         {
-            WriteToWithCast(null);
+            WriteToWithCast(writer, null);
         }
 
-        public override void WriteToWithCast(CppTypeName cast)
+        public override void WriteToWithCast(CodeWriter writer, CppTypeName cast)
         {
             if (cast == null || cast == ProjectConverter.CppTypeName_SkipCheck || cast == ProjectConverter.CppTypeName_Any)
             {
@@ -58,16 +58,16 @@ namespace QIQI.EplOnCpp.Core.Expressions
             {
                 throw new Exception("无效数组类型");
             }
-            Writer.Write(resultType.ToString());
-            Writer.Write(" {");
+            writer.Write(resultType.ToString());
+            writer.Write(" {");
             for (int i = 0; i < Item.Count; i++)
             {
                 var item = Item[i];
                 if (i != 0)
-                    Writer.Write(", ");
-                item.WriteToWithCast(elemType);
+                    writer.Write(", ");
+                item.WriteToWithCast(writer, elemType);
             }
-            Writer.Write("}");
+            writer.Write("}");
         }
 
         public override void ProcessSubExpression(Func<EocExpression, EocExpression> processor, bool deep = true)

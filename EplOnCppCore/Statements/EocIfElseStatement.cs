@@ -51,27 +51,27 @@ namespace QIQI.EplOnCpp.Core.Statements
             return this;
         }
 
-        public override void WriteTo()
+        public override void WriteTo(CodeWriter writer)
         {
-            Writer.NewLine();
+            writer.NewLine();
             if (Mask)
-                Writer.Write("// ");
+                writer.Write("// ");
 
-            Writer.Write("if (");
-            Condition.WriteToWithCast(ProjectConverter.CppTypeName_Bool);
-            Writer.Write(")");
-            Writer.AddComment(Comment);
-            using (Writer.NewBlock())
+            writer.Write("if (");
+            Condition.WriteToWithCast(writer, ProjectConverter.CppTypeName_Bool);
+            writer.Write(")");
+            writer.AddComment(Comment);
+            using (writer.NewBlock())
             {
-                BlockOnTrue.WriteTo();
+                BlockOnTrue.WriteTo(writer);
             }
-            Writer.NewLine();
+            writer.NewLine();
             if (Mask)
-                Writer.Write("// ");
-            Writer.Write("else");
-            using (Writer.NewBlock())
+                writer.Write("// ");
+            writer.Write("else");
+            using (writer.NewBlock())
             {
-                BlockOnFalse.WriteTo();
+                BlockOnFalse.WriteTo(writer);
             }
         }
     }

@@ -29,20 +29,20 @@ namespace QIQI.EplOnCpp.Core.Expressions
             return EocConstantInfo.DataType;
         }
 
-        public override void WriteTo()
+        public override void WriteTo(CodeWriter writer)
         {
             if (!string.IsNullOrWhiteSpace(EocConstantInfo.Getter))
             {
-                Writer.Write(EocConstantInfo.Getter);
-                Writer.Write("()");
+                writer.Write(EocConstantInfo.Getter);
+                writer.Write("()");
             }
             else if(!string.IsNullOrWhiteSpace(EocConstantInfo.CppName))
             {
-                Writer.Write(EocConstantInfo.CppName);
+                writer.Write(EocConstantInfo.CppName);
             }
             else
             {
-                Writer.WriteLiteral(EocConstantInfo.Value);
+                writer.WriteLiteral(EocConstantInfo.Value);
             }
         }
 

@@ -43,18 +43,18 @@ namespace QIQI.EplOnCpp.Core.Statements
             Mask = mask;
         }
 
-        public override void WriteTo()
+        public override void WriteTo(CodeWriter writer)
         {
-            Writer.NewLine();
+            writer.NewLine();
             if (Mask)
-                Writer.Write("// ");
-            Writer.Write("if (");
-            Condition.WriteToWithCast(ProjectConverter.CppTypeName_Bool);
-            Writer.Write(")");
-            Writer.AddComment(Comment);
-            using (Writer.NewBlock())
+                writer.Write("// ");
+            writer.Write("if (");
+            Condition.WriteToWithCast(writer, ProjectConverter.CppTypeName_Bool);
+            writer.Write(")");
+            writer.AddComment(Comment);
+            using (writer.NewBlock())
             {
-                Block.WriteTo();
+                Block.WriteTo(writer);
             }
         }
     }

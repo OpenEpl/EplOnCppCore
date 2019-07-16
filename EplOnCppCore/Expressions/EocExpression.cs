@@ -7,7 +7,6 @@ namespace QIQI.EplOnCpp.Core.Expressions
     {
         public CodeConverter C { get; }
         public ProjectConverter P => C.P;
-        public CodeWriter Writer => C.Writer;
         public ILoggerWithContext Logger => P.Logger;
 
         public EocExpression(CodeConverter c)
@@ -15,21 +14,21 @@ namespace QIQI.EplOnCpp.Core.Expressions
             C = c ?? throw new ArgumentNullException(nameof(c));
         }
 
-        public abstract void WriteTo();
+        public abstract void WriteTo(CodeWriter writer);
 
-        public virtual void WriteToWithCast(CppTypeName cast)
+        public virtual void WriteToWithCast(CodeWriter writer, CppTypeName cast)
         {
             var exprType = GetResultType();
             if (cast == null || cast == ProjectConverter.CppTypeName_SkipCheck || cast == exprType)
             {
-                WriteTo();
+                WriteTo(writer);
                 return;
             }
-            Writer.Write("e::system::cast<");
-            Writer.Write(cast.ToString());
-            Writer.Write(">(");
-            WriteTo();
-            Writer.Write(")");
+            writer.Write("e::system::cast<");
+            writer.Write(cast.ToString());
+            writer.Write(">(");
+            WriteTo(writer);
+            writer.Write(")");
         }
 
         public abstract CppTypeName GetResultType();

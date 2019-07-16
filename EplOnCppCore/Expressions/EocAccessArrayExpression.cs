@@ -43,7 +43,7 @@ namespace QIQI.EplOnCpp.Core.Expressions
             }
         }
 
-        public override void WriteTo()
+        public override void WriteTo(CodeWriter writer)
         {
             EocExpression target = this;
             var indexs = new List<EocExpression>();
@@ -53,16 +53,16 @@ namespace QIQI.EplOnCpp.Core.Expressions
                 target = t.Target;
             }
             indexs.Reverse();
-            target.WriteTo();
-            Writer.Write(".At(");
+            target.WriteTo(writer);
+            writer.Write(".At(");
             for (int i = 0; i < indexs.Count; i++)
             {
                 var item = indexs[i];
                 if (i != 0)
-                    Writer.Write(", ");
-                item.WriteTo();
+                    writer.Write(", ");
+                item.WriteTo(writer);
             }
-            Writer.Write(")");
+            writer.Write(")");
         }
     }
 }

@@ -43,16 +43,16 @@ namespace QIQI.EplOnCpp.Core.Statements
             return this;
         }
 
-        public override void WriteTo()
+        public override void WriteTo(CodeWriter writer)
         {
             if (Mask)
             {
-                Writer.AddCommentLine(CommentOnStart);
-                using (Writer.NewBlock())
+                writer.AddCommentLine(CommentOnStart);
+                using (writer.NewBlock())
                 {
-                    Block.WriteTo();
+                    Block.WriteTo(writer);
                 }
-                Writer.AddCommentLine(CommentOnEnd);
+                writer.AddCommentLine(CommentOnEnd);
                 return;
             }
             var hasVar = Var != null;
@@ -61,71 +61,71 @@ namespace QIQI.EplOnCpp.Core.Statements
             var varForIndex = $"{varPrefix}_index";
             var typeName = $"decltype({varForCount})";
 
-            Writer.AddCommentLine(CommentOnStart);
+            writer.AddCommentLine(CommentOnStart);
 
-            Writer.NewLine();
+            writer.NewLine();
             if (hasVar)
             {
                 typeName = Var.GetResultType().ToString();
-                Writer.Write(typeName);
-                Writer.Write(" ");
+                writer.Write(typeName);
+                writer.Write(" ");
             }
             else
             {
-                Writer.Write("auto ");
+                writer.Write("auto ");
             }
-            Writer.Write(varForCount);
-            Writer.Write(" = ");
-            Count.WriteTo();
-            Writer.Write(";");
+            writer.Write(varForCount);
+            writer.Write(" = ");
+            Count.WriteTo(writer);
+            writer.Write(";");
 
-            Writer.NewLine();
-            Writer.Write(typeName);
-            Writer.Write(" ");
-            Writer.Write(varForIndex);
-            Writer.Write(" = 1");
-            Writer.Write(";");
+            writer.NewLine();
+            writer.Write(typeName);
+            writer.Write(" ");
+            writer.Write(varForIndex);
+            writer.Write(" = 1");
+            writer.Write(";");
 
-            Writer.NewLine();
-            Writer.Write("for (");
+            writer.NewLine();
+            writer.Write("for (");
 
             if (hasVar)
             {
-                C.WriteLetExpression(Var, () =>
+                C.WriteLetExpression(writer, Var, () =>
                 {
-                    Writer.Write(varForIndex);
+                    writer.Write(varForIndex);
                 });
             }
 
-            Writer.Write("; ");
+            writer.Write("; ");
 
-            Writer.Write(varForIndex);
-            Writer.Write(" <= ");
-            Writer.Write(varForCount);
+            writer.Write(varForIndex);
+            writer.Write(" <= ");
+            writer.Write(varForCount);
 
-            Writer.Write("; ");
+            writer.Write("; ");
 
             if (hasVar)
             {
-                C.WriteLetExpression(Var, () =>
+                C.WriteLetExpression(writer, Var, () =>
                 {
-                    Writer.Write("++");
-                    Writer.Write(varForIndex);
+                    writer.Write("++");
+                    writer.Write(varForIndex);
                 });
             }
             else
             {
-                Writer.Write(varForIndex);
-                Writer.Write("++");
+                writer.Write(varForIndex);
+                writer.Write("++");
             }
 
-            Writer.Write(")");
-            using (Writer.NewBlock())
+            writer.Write(")");
+            using (writer.NewBlock())
             {
-                Block.WriteTo();
+                Block.WriteTo(writer);
             }
 
-            Writer.AddCommentLine(CommentOnEnd);
+            writer.AddCommentLine(CommentOnEnd);
         }
     }
 }

@@ -49,7 +49,7 @@ namespace QIQI.EplOnCpp.Core.Expressions
             return CmdInfo.ReturnDataType;
         }
 
-        public override void WriteTo()
+        public override void WriteTo(CodeWriter writer)
         {
             if (CmdInfo.SuperTemplate != null)
             {
@@ -67,54 +67,54 @@ namespace QIQI.EplOnCpp.Core.Expressions
 
             if (Target != null)
             {
-                Target.WriteTo();
-                Writer.Write("->");
+                Target.WriteTo(writer);
+                writer.Write("->");
             }
-            Writer.Write(CmdInfo.CppName);
+            writer.Write(CmdInfo.CppName);
 
             int lengthOfVarArgs = CmdInfo.GetLengthOfVarArgs();
             int startOfVarArgs = CmdInfo.Parameters.Count - lengthOfVarArgs;
-            Writer.Write("(");
+            writer.Write("(");
             for (int i = 0; i < ParamList.Count; i++)
             {
                 var item = ParamList[i];
                 if (i != 0)
-                    Writer.Write(", ");
+                    writer.Write(", ");
                 EocParameterInfo eocParameterInfo = i < CmdInfo.Parameters.Count ? CmdInfo.Parameters[i] : CmdInfo.Parameters[startOfVarArgs + (i - startOfVarArgs) % lengthOfVarArgs];
                 if (item == null)
                 {
-                    Writer.Write("std::nullopt");
+                    writer.Write("std::nullopt");
                 }
                 else
                 {
                     if (eocParameterInfo.ByRef)
                     {
                         if (eocParameterInfo.Optional)
-                            Writer.Write("std::referenced_wrapper(");
+                            writer.Write("std::referenced_wrapper(");
 
-                        Writer.Write("BYREF");
+                        writer.Write("BYREF");
                         if (eocParameterInfo.DataType != ProjectConverter.CppTypeName_SkipCheck)
                         {
-                            Writer.Write("(");
-                            Writer.Write(eocParameterInfo.DataType.ToString());
-                            Writer.Write(", ");
+                            writer.Write("(");
+                            writer.Write(eocParameterInfo.DataType.ToString());
+                            writer.Write(", ");
                         }
                         else
                         {
-                            Writer.Write("_AUTO(");
+                            writer.Write("_AUTO(");
                         }
                     }
-                    item.WriteToWithCast(eocParameterInfo.DataType);
+                    item.WriteToWithCast(writer, eocParameterInfo.DataType);
                     if (eocParameterInfo.ByRef)
                     {
                         if (eocParameterInfo.Optional)
-                            Writer.Write(")");
+                            writer.Write(")");
 
-                        Writer.Write(")");
+                        writer.Write(")");
                     }
                 }
             }
-            Writer.Write(")");
+            writer.Write(")");
         }
 
         public override void ProcessSubExpression(Func<EocExpression, EocExpression> processor, bool deep = true)

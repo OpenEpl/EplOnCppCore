@@ -51,16 +51,16 @@ namespace QIQI.EplOnCpp.Core.Statements
             return this;
         }
 
-        public override void WriteTo()
+        public override void WriteTo(CodeWriter writer)
         {
             if (Mask)
             {
-                Writer.AddCommentLine(CommentOnStart);
-                using (Writer.NewBlock())
+                writer.AddCommentLine(CommentOnStart);
+                using (writer.NewBlock())
                 {
-                    Block.WriteTo();
+                    Block.WriteTo(writer);
                 }
-                Writer.AddCommentLine(CommentOnEnd);
+                writer.AddCommentLine(CommentOnEnd);
                 return;
             }
 
@@ -72,89 +72,89 @@ namespace QIQI.EplOnCpp.Core.Statements
             var varForIsNegStep = $"{varPrefix}_isNegStep";
             var typeName = $"decltype({varForIndex})";
 
-            Writer.NewLine();
+            writer.NewLine();
             if (hasVar)
             {
                 typeName = Var.GetResultType().ToString();
-                Writer.Write(typeName);
-                Writer.Write(" ");
+                writer.Write(typeName);
+                writer.Write(" ");
             }
             else
             {
-                Writer.Write("auto ");
+                writer.Write("auto ");
             }
-            Writer.Write(varForIndex);
-            Writer.Write(" = ");
-            Start.WriteTo();
-            Writer.Write(";");
+            writer.Write(varForIndex);
+            writer.Write(" = ");
+            Start.WriteTo(writer);
+            writer.Write(";");
 
-            Writer.NewLine();
-            Writer.Write(typeName);
-            Writer.Write(" ");
-            Writer.Write(varForEnd);
-            Writer.Write(" = ");
-            End.WriteTo();
-            Writer.Write(";");
+            writer.NewLine();
+            writer.Write(typeName);
+            writer.Write(" ");
+            writer.Write(varForEnd);
+            writer.Write(" = ");
+            End.WriteTo(writer);
+            writer.Write(";");
 
-            Writer.NewLine();
-            Writer.Write(typeName);
-            Writer.Write(" ");
-            Writer.Write(varForStep);
-            Writer.Write(" = ");
-            Step.WriteTo();
-            Writer.Write(";");
+            writer.NewLine();
+            writer.Write(typeName);
+            writer.Write(" ");
+            writer.Write(varForStep);
+            writer.Write(" = ");
+            Step.WriteTo(writer);
+            writer.Write(";");
 
-            Writer.NewLine();
-            Writer.Write("bool ");
-            Writer.Write(varForIsNegStep);
-            Writer.Write(" = ");
-            Writer.Write(varForStep);
-            Writer.Write(" <= 0;");
+            writer.NewLine();
+            writer.Write("bool ");
+            writer.Write(varForIsNegStep);
+            writer.Write(" = ");
+            writer.Write(varForStep);
+            writer.Write(" <= 0;");
 
-            Writer.NewLine();
-            Writer.Write("for (");
+            writer.NewLine();
+            writer.Write("for (");
             if (hasVar)
             {
-                C.WriteLetExpression(Var, () =>
+                C.WriteLetExpression(writer, Var, () =>
                 {
-                    Writer.Write(varForIndex);
+                    writer.Write(varForIndex);
                 });
             }
 
-            Writer.Write("; ");
+            writer.Write("; ");
 
-            Writer.Write(varForIsNegStep);
-            Writer.Write(" ? ");
-            Writer.Write(varForIndex);
-            Writer.Write(" >= ");
-            Writer.Write(varForEnd);
-            Writer.Write(" : ");
-            Writer.Write(varForIndex);
-            Writer.Write(" <= ");
-            Writer.Write(varForEnd);
+            writer.Write(varForIsNegStep);
+            writer.Write(" ? ");
+            writer.Write(varForIndex);
+            writer.Write(" >= ");
+            writer.Write(varForEnd);
+            writer.Write(" : ");
+            writer.Write(varForIndex);
+            writer.Write(" <= ");
+            writer.Write(varForEnd);
 
-            Writer.Write("; ");
+            writer.Write("; ");
 
             if (hasVar)
             {
-                C.WriteLetExpression(Var, () =>
+                C.WriteLetExpression(writer, Var, () =>
                 {
-                    Writer.Write(varForIndex);
-                    Writer.Write(" += ");
-                    Writer.Write(varForStep);
+                    writer.Write(varForIndex);
+                    writer.Write(" += ");
+                    writer.Write(varForStep);
                 });
             }
             else
             {
-                Writer.Write(varForIndex);
-                Writer.Write(" += ");
-                Writer.Write(varForStep);
+                writer.Write(varForIndex);
+                writer.Write(" += ");
+                writer.Write(varForStep);
             }
 
-            Writer.Write(")");
-            using (Writer.NewBlock())
+            writer.Write(")");
+            using (writer.NewBlock())
             {
-                Block.WriteTo();
+                Block.WriteTo(writer);
             }
         }
     }

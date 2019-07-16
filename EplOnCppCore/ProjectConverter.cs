@@ -824,7 +824,7 @@ namespace QIQI.EplOnCpp.Core
                 using (writer.NewBlock())
                 {
                     DefineLocalVariable(writer, item.Variables);
-                    new CodeConverter(this, writer, classItem, item).Optimize().Generate();
+                    new CodeConverter(this, classItem, item).Optimize().Generate(writer);
                 }
             }
         }

@@ -39,29 +39,29 @@ namespace QIQI.EplOnCpp.Core.Statements
             return this;
         }
 
-        public override void WriteTo()
+        public override void WriteTo(CodeWriter writer)
         {
             if (Mask)
             {
-                Writer.AddCommentLine(CommentOnStart);
-                using (Writer.NewBlock())
+                writer.AddCommentLine(CommentOnStart);
+                using (writer.NewBlock())
                 {
-                    Block.WriteTo();
+                    Block.WriteTo(writer);
                 }
-                Writer.AddCommentLine(CommentOnEnd);
+                writer.AddCommentLine(CommentOnEnd);
                 return;
             }
-            Writer.NewLine();
-            Writer.Write("do");
-            Writer.AddComment(CommentOnStart);
-            using (Writer.NewBlock())
+            writer.NewLine();
+            writer.Write("do");
+            writer.AddComment(CommentOnStart);
+            using (writer.NewBlock())
             {
-                Block.WriteTo();
+                Block.WriteTo(writer);
             }
-            Writer.Write("while (");
-            Condition.WriteToWithCast(ProjectConverter.CppTypeName_Bool);
-            Writer.Write(")");
-            Writer.AddComment(CommentOnEnd);
+            writer.Write("while (");
+            Condition.WriteToWithCast(writer, ProjectConverter.CppTypeName_Bool);
+            writer.Write(")");
+            writer.AddComment(CommentOnEnd);
         }
     }
 }

@@ -39,15 +39,15 @@ namespace QIQI.EplOnCpp.Core.Statements
             return this;
         }
 
-        public override void WriteTo()
+        public override void WriteTo(CodeWriter writer)
         {
-            Writer.NewLine();
+            writer.NewLine();
             if (Expr != null)
             {
-                Expr.WriteTo();
-                Writer.Write("; ");
+                Expr.WriteTo(writer);
+                writer.Write("; ");
             }
-            Writer.AddComment(Comment);
+            writer.AddComment(Comment);
         }
     }
 }

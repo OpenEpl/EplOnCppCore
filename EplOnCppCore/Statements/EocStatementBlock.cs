@@ -16,7 +16,6 @@ namespace QIQI.EplOnCpp.Core.Statements
 
         public CodeConverter C { get; }
         public ProjectConverter P => C.P;
-        public CodeWriter Writer => C.Writer;
         public ILoggerWithContext Logger => P.Logger;
 
         private List<EocStatement> statements;
@@ -98,11 +97,11 @@ namespace QIQI.EplOnCpp.Core.Statements
             return ((IList<EocStatement>)statements).GetEnumerator();
         }
 
-        public void WriteTo()
+        public void WriteTo(CodeWriter writer)
         {
             foreach (var item in this)
             {
-                item.WriteTo();
+                item.WriteTo(writer);
             }
         }
     }

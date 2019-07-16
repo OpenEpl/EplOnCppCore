@@ -23,14 +23,14 @@ namespace QIQI.EplOnCpp.Core.Expressions
             return ProjectConverter.CppTypeName_MethodPtr;
         }
 
-        public override void WriteTo()
+        public override void WriteTo(CodeWriter writer)
         {
-            Writer.Write("e::system::MethodPtrPackager<");
-            Writer.Write(CmdInfo.ReturnDataType == null ? "void" : CmdInfo.ReturnDataType.ToString());
-            Writer.Write("(");
-            Writer.Write(string.Join(", ", CmdInfo.Parameters.Select(x => P.GetParameterTypeString(x))));
-            Writer.Write(")");
-            Writer.Write(">::ptr<&" + CmdInfo.CppName + ">");
+            writer.Write("e::system::MethodPtrPackager<");
+            writer.Write(CmdInfo.ReturnDataType == null ? "void" : CmdInfo.ReturnDataType.ToString());
+            writer.Write("(");
+            writer.Write(string.Join(", ", CmdInfo.Parameters.Select(x => P.GetParameterTypeString(x))));
+            writer.Write(")");
+            writer.Write(">::ptr<&" + CmdInfo.CppName + ">");
         }
     }
 }

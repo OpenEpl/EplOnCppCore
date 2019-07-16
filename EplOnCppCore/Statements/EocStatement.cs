@@ -7,7 +7,6 @@ namespace QIQI.EplOnCpp.Core.Statements
     {
         public CodeConverter C { get; }
         public ProjectConverter P => C.P;
-        public CodeWriter Writer => C.Writer;
         public ILoggerWithContext Logger => P.Logger;
 
         public EocStatement(CodeConverter c)
@@ -15,7 +14,7 @@ namespace QIQI.EplOnCpp.Core.Statements
             C = c ?? throw new ArgumentNullException(nameof(c));
         }
 
-        public abstract void WriteTo();
+        public abstract void WriteTo(CodeWriter writer);
         public virtual EocStatement Optimize() => this;
 
         public static EocStatement Translate(CodeConverter converter, Statement item)
