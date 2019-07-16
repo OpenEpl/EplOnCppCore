@@ -552,20 +552,7 @@ namespace QIQI.EplOnCpp.Core
             var paramName = item.Parameters.Select(x => GetUserDefinedName_SimpleCppName(x.Id)).ToArray();
             string returnTypeString = eocCmdInfo.ReturnDataType == null ? "void" : eocCmdInfo.ReturnDataType.ToString();
             string funcTypeString;
-            writer.NewLine();
-            writer.Write(returnTypeString);
-            writer.Write(" __stdcall ");
-            writer.Write(name);
-            writer.Write("(");
-            for (int i = 0; i < eocCmdInfo.Parameters.Count; i++)
-            {
-                if (i != 0)
-                    writer.Write(", ");
-                writer.Write(GetParameterTypeString(eocCmdInfo.Parameters[i]));
-                writer.Write(" ");
-                writer.Write(paramName[i]);
-            }
-            writer.Write(")");
+            WriteMethodHeader(writer, eocCmdInfo, name, false, null, false);
 
             {
                 var funcTypeStringBuilder = new StringBuilder();
@@ -800,27 +787,7 @@ namespace QIQI.EplOnCpp.Core
                 var name = GetUserDefinedName_SimpleCppName(item.Id);
                 var clsRawName = "raw_" + GetUserDefinedName_SimpleCppName(classItem.Id);
                 var eocCmdInfo = GetEocCmdInfo(item);
-                var paramName = item.Parameters.Select(x => GetUserDefinedName_SimpleCppName(x.Id)).ToArray();
-
-                writer.NewLine();
-                writer.Write(eocCmdInfo.ReturnDataType == null ? "void" : eocCmdInfo.ReturnDataType.ToString());
-                writer.Write(" __stdcall ");
-                if (isClassMember)
-                {
-                    writer.Write(clsRawName);
-                    writer.Write("::");
-                }
-                writer.Write(name);
-                writer.Write("(");
-                for (int i = 0; i < eocCmdInfo.Parameters.Count; i++)
-                {
-                    if (i != 0)
-                        writer.Write(", ");
-                    writer.Write(GetParameterTypeString(eocCmdInfo.Parameters[i]));
-                    writer.Write(" ");
-                    writer.Write(paramName[i]);
-                }
-                writer.Write(")");
+                WriteMethodHeader(writer, eocCmdInfo, name, false, isClassMember ? clsRawName : null, false);
                 using (writer.NewBlock())
                 {
                     DefineLocalVariable(writer, item.Variables);
@@ -1066,19 +1033,48 @@ namespace QIQI.EplOnCpp.Core
             writer.Write(";");
         }
 
-        private void DefineMethod(CodeWriter writer, EocCmdInfo eocCmdInfo, string name, bool isVirtual)
+        internal void DefineMethod(CodeWriter writer, EocCmdInfo eocCmdInfo, string name, bool isVirtual)
         {
+            WriteMethodHeader(writer, eocCmdInfo, name, isVirtual, null, true);
+            writer.Write(";");
+        }
+
+        public string[] GetParamNameFromInfo(List<EocParameterInfo> infos)
+        {
+            string[] result = new string[infos.Count];
+            for (int i = 0; i < infos.Count; i++)
+            {
+                result[i] = infos[i].Name ?? $"_AnonymousParameter{i + 1}";
+            }
+            return result;
+        }
+
+        internal void WriteMethodHeader(CodeWriter writer, EocCmdInfo eocCmdInfo, string name, bool isVirtual, string className = null, bool writeDefaultValue = true)
+        {
+            var paramName = GetParamNameFromInfo(eocCmdInfo.Parameters);
             writer.NewLine();
             if (isVirtual)
             {
                 writer.Write("virtual ");
             }
 
-            var numOfOptionalAtEnd = eocCmdInfo.Parameters.Count(x => x.Optional);
-
+            var numOfOptionalAtEnd = 0;
+            for (int i = eocCmdInfo.Parameters.Count - 1; i >= 0; i--)
+            {
+                if (eocCmdInfo.Parameters[i].Optional)
+                    numOfOptionalAtEnd++;
+                else
+                    break;
+            }
             var startOfOptionalAtEnd = eocCmdInfo.Parameters.Count - numOfOptionalAtEnd;
+
             writer.Write(eocCmdInfo.ReturnDataType == null ? "void" : eocCmdInfo.ReturnDataType.ToString());
             writer.Write(" __stdcall ");
+            if (className != null)
+            {
+                writer.Write(className);
+                writer.Write("::");
+            }
             writer.Write(name);
             writer.Write("(");
             for (int i = 0; i < eocCmdInfo.Parameters.Count; i++)
@@ -1086,12 +1082,14 @@ namespace QIQI.EplOnCpp.Core
                 if (i != 0)
                     writer.Write(", ");
                 writer.Write(GetParameterTypeString(eocCmdInfo.Parameters[i]));
-                if (i >= startOfOptionalAtEnd)
+                writer.Write(" ");
+                writer.Write(paramName[i]);
+                if (writeDefaultValue && i >= startOfOptionalAtEnd)
                 {
                     writer.Write(" = std::nullopt");
                 }
             }
-            writer.Write(");");
+            writer.Write(")");
         }
 
         private void DefineMethod(CodeWriter writer, ClassInfo classItem, MethodInfo item)
@@ -1408,7 +1406,7 @@ namespace QIQI.EplOnCpp.Core
             }
         }
 
-        private EocCmdInfo GetEocCmdInfo(DllDeclareInfo x)
+        public EocCmdInfo GetEocCmdInfo(DllDeclareInfo x)
         {
             return new EocCmdInfo()
             {
@@ -1435,7 +1433,8 @@ namespace QIQI.EplOnCpp.Core
                 ByRef = x.ByRef || x.ArrayParameter || !IsValueType(x.DataType),
                 Optional = x.OptionalParameter,
                 VarArgs = false,
-                DataType = GetCppTypeName(x.DataType, x.ArrayParameter)
+                DataType = GetCppTypeName(x.DataType, x.ArrayParameter),
+                Name = GetUserDefinedName_SimpleCppName(x.Id)
             };
         }
 
@@ -1446,7 +1445,8 @@ namespace QIQI.EplOnCpp.Core
                 ByRef = x.ByRef || x.ArrayParameter || !IsValueType(x.DataType),
                 Optional = false,
                 VarArgs = false,
-                DataType = GetCppTypeName(x.DataType, x.ArrayParameter)
+                DataType = GetCppTypeName(x.DataType, x.ArrayParameter),
+                Name = GetUserDefinedName_SimpleCppName(x.Id)
             };
         }
 
