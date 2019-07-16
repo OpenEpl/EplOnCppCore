@@ -30,6 +30,11 @@ namespace QIQI.EplOnCpp.Core.Expressions
             {
                 writer.Write("e::system::noRef(");
             }
+            if(Target != null)
+            {
+                Target.WriteTo(writer);
+                writer.Write("->");
+            }
             if (MemberInfo.Getter != null)
             {
                 writer.Write(MemberInfo.Getter);
