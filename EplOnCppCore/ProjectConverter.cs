@@ -28,7 +28,6 @@ namespace QIQI.EplOnCpp.Core
         public readonly static CppTypeName CppTypeName_Any = new CppTypeName(false, "e::system::any");
         public readonly static CppTypeName CppTypeName_SkipCheck = CppTypeName.Parse("*");
 
-
         public static readonly Dictionary<Type, CppTypeName> ConstTypeMap = new Dictionary<Type, CppTypeName>()
         {
             { typeof(byte), CppTypeName_Byte },
@@ -56,7 +55,6 @@ namespace QIQI.EplOnCpp.Core
                 ? new CppTypeName(false, "e::system::array", new[] { ConstTypeMap[type] })
                 : ConstTypeMap[type];
         }
-
 
         public static readonly Dictionary<int, CppTypeName> BasicCppTypeNameMap = new Dictionary<int, CppTypeName> {
             { EplSystemId.DataType_Bin , CppTypeName_Bin },
@@ -205,19 +203,11 @@ namespace QIQI.EplOnCpp.Core
             string curNamespace;
 
             curNamespace = ConstantNamespace;
+            EocConstant[] eocConstants = EocConstant.Translate(this, Source.Resource.Constants);
             fileName = GetFileNameByNamespace(dest, curNamespace, "h");
             using (var writer = new CodeWriter(fileName))
             {
-                writer.Write("#pragma once");
-                writer.NewLine();
-                writer.Write("#include <e/system/basic_type.h>");
-                using (writer.NewNamespace(curNamespace))
-                {
-                    foreach (var item in Source.Resource.Constants)
-                    {
-                        DefineConstant(writer, item);
-                    }
-                }
+                EocConstant.Define(this, writer, eocConstants);
             }
 
             curNamespace = TypeNamespace;
@@ -315,7 +305,7 @@ namespace QIQI.EplOnCpp.Core
                 writer.Write("#include \"type.h\"");
                 using (writer.NewNamespace(curNamespace))
                 {
-                    DefineGlobalVariable(writer, Source.Code.GlobalVariables);
+                    DefineVariable(writer, new string[] { "extern" }, Source.Code.GlobalVariables, false);
                 }
             }
             fileName = GetFileNameByNamespace(dest, curNamespace, "cpp");
@@ -326,7 +316,7 @@ namespace QIQI.EplOnCpp.Core
                 writer.Write("#include \"../../stdafx.h\"");
                 using (writer.NewNamespace(curNamespace))
                 {
-                    ImplementGlobalVariable(writer, Source.Code.GlobalVariables);
+                    DefineVariable(writer, null, Source.Code.GlobalVariables);
                 }
             }
 
@@ -662,7 +652,7 @@ namespace QIQI.EplOnCpp.Core
                 if (classItem.Variables.Length != 0)
                 {
                     writer.Write("private:");
-                    DefineTypeMember(writer, classItem.Variables);
+                    DefineVariable(writer, null, classItem.Variables, false);
                 }
                 writer.NewLine();
                 writer.Write("public:");
@@ -695,7 +685,7 @@ namespace QIQI.EplOnCpp.Core
                 WriteMethodHeader(writer, eocCmdInfo, name, false, isClassMember ? clsRawName : null, false);
                 using (writer.NewBlock())
                 {
-                    DefineLocalVariable(writer, item.Variables);
+                    DefineVariable(writer, null, item.Variables);
                     new CodeConverter(this, classItem, item).Optimize().Generate(writer);
                 }
             }
@@ -707,7 +697,7 @@ namespace QIQI.EplOnCpp.Core
             {
                 using (writer.NewNamespace(GetUserDefinedName_SimpleCppName(classItem.Id)))
                 {
-                    DefineStaticClassVariable(writer, classItem.Variables);
+                    DefineVariable(writer, new string[] { "static" }, classItem.Variables);
                 }
             }
             foreach (var item in classItem.Method.Select(x => MethodIdMap[x]))
@@ -729,7 +719,7 @@ namespace QIQI.EplOnCpp.Core
                 if (classItem.Variables.Length != 0)
                 {
                     writer.Write(": ");
-                    InitMembers(writer, classItem.Variables);
+                    InitMembersInConstructor(writer, classItem.Variables);
                 }
                 using (writer.NewBlock())
                 {
@@ -768,7 +758,7 @@ namespace QIQI.EplOnCpp.Core
             }
         }
 
-        private void InitMembers(CodeWriter writer, IEnumerable<AbstractVariableInfo> collection)
+        private void InitMembersInConstructor(CodeWriter writer, IEnumerable<AbstractVariableInfo> collection)
         {
             bool first = true;
             foreach (var item in collection)
@@ -785,112 +775,39 @@ namespace QIQI.EplOnCpp.Core
             }
         }
 
-        private void DefineLocalVariable(CodeWriter writer, IEnumerable<LocalVariableInfo> collection)
-        {
-            foreach (var item in collection)
-            {
-                DefineLocalVariable(writer, item);
-            }
-        }
-
-        private void DefineLocalVariable(CodeWriter writer, LocalVariableInfo variable)
+        private void DefineVariable(CodeWriter writer, string[] modifiers, AbstractVariableInfo variable, bool initAtOnce = true)
         {
             writer.NewLine();
+            if (modifiers != null)
+            {
+                foreach (var item in modifiers)
+                {
+                    writer.Write(item);
+                    writer.Write(" ");
+                }
+            }
             writer.Write(GetCppTypeName(variable.DataType, variable.UBound).ToString());
             writer.Write(" ");
             writer.Write(GetUserDefinedName_SimpleCppName(variable.Id));
-            var initParameter = GetInitParameter(variable.DataType, variable.UBound);
-            if (!string.IsNullOrWhiteSpace(initParameter))
+            if (initAtOnce)
             {
-                writer.Write("(");
-                writer.Write(initParameter);
-                writer.Write(")");
+                var initParameter = GetInitParameter(variable.DataType, variable.UBound);
+                if (!string.IsNullOrWhiteSpace(initParameter))
+                {
+                    writer.Write("(");
+                    writer.Write(initParameter);
+                    writer.Write(")");
+                }
             }
             writer.Write(";");
         }
 
-        private void DefineStaticClassVariable(CodeWriter writer, IEnumerable<ClassVariableInfo> collection)
+        private void DefineVariable(CodeWriter writer, string[] modifiers, IEnumerable<AbstractVariableInfo> collection, bool initAtOnce = true)
         {
             foreach (var item in collection)
             {
-                DefineStaticClassVariable(writer, item);
+                DefineVariable(writer, modifiers, item, initAtOnce);
             }
-        }
-
-        private void DefineStaticClassVariable(CodeWriter writer, ClassVariableInfo variable)
-        {
-            writer.NewLine();
-            writer.Write("static ");
-            writer.Write(GetCppTypeName(variable.DataType, variable.UBound).ToString());
-            writer.Write(" ");
-            writer.Write(GetUserDefinedName_SimpleCppName(variable.Id));
-            var initParameter = GetInitParameter(variable.DataType, variable.UBound);
-            if (!string.IsNullOrWhiteSpace(initParameter))
-            {
-                writer.Write("(");
-                writer.Write(initParameter);
-                writer.Write(")");
-            }
-            writer.Write(";");
-        }
-
-        private void DefineTypeMember(CodeWriter writer, IEnumerable<AbstractVariableInfo> collection)
-        {
-            foreach (var item in collection)
-            {
-                DefineTypeMember(writer, item);
-            }
-        }
-
-        private void DefineTypeMember(CodeWriter writer, AbstractVariableInfo member)
-        {
-            writer.NewLine();
-            writer.Write(GetCppTypeName(member.DataType, member.UBound).ToString());
-            writer.Write(" ");
-            writer.Write(GetUserDefinedName_SimpleCppName(member.Id));
-            writer.Write(";");
-        }
-
-        private void DefineGlobalVariable(CodeWriter writer, IEnumerable<GlobalVariableInfo> collection)
-        {
-            foreach (var item in collection)
-            {
-                DefineGlobalVariable(writer, item);
-            }
-        }
-
-        private void DefineGlobalVariable(CodeWriter writer, GlobalVariableInfo variable)
-        {
-            writer.NewLine();
-            writer.Write("extern ");
-            writer.Write(GetCppTypeName(variable.DataType, variable.UBound).ToString());
-            writer.Write(" ");
-            writer.Write(GetUserDefinedName_SimpleCppName(variable.Id));
-            writer.Write(";");
-        }
-
-        private void ImplementGlobalVariable(CodeWriter writer, IEnumerable<GlobalVariableInfo> collection)
-        {
-            foreach (var item in collection)
-            {
-                ImplementGlobalVariable(writer, item);
-            }
-        }
-
-        private void ImplementGlobalVariable(CodeWriter writer, GlobalVariableInfo variable)
-        {
-            writer.NewLine();
-            writer.Write(GetCppTypeName(variable.DataType, variable.UBound).ToString());
-            writer.Write(" ");
-            writer.Write(GetUserDefinedName_SimpleCppName(variable.Id));
-            var initParameter = GetInitParameter(variable.DataType, variable.UBound);
-            if (!string.IsNullOrWhiteSpace(initParameter))
-            {
-                writer.Write("(");
-                writer.Write(initParameter);
-                writer.Write(")");
-            }
-            writer.Write(";");
         }
 
         private void DefineStructNames(CodeWriter writer, IEnumerable<StructInfo> collection)
@@ -922,14 +839,14 @@ namespace QIQI.EplOnCpp.Core
             writer.Write($"struct {rawName}");
             using (writer.NewBlock())
             {
-                DefineTypeMember(writer, item.Member);
+                DefineVariable(writer, null, item.Member, false);
 
                 writer.NewLine();
                 writer.Write($"{rawName}()");
                 if (item.Member.Length != 0)
                 {
                     writer.Write(": ");
-                    InitMembers(writer, item.Member);
+                    InitMembersInConstructor(writer, item.Member);
                 }
                 using (writer.NewBlock())
                 {
@@ -1013,60 +930,6 @@ namespace QIQI.EplOnCpp.Core
                 }
             }
             DefineMethod(writer, eocCmdInfo, name, isVirtual);
-        }
-
-        private void DefineConstant(CodeWriter writer, ConstantInfo item)
-        {
-            if (item.Value == null)
-            {
-                return;
-            }
-            var name = GetUserDefinedName_SimpleCppName(item.Id);
-            switch (item.Value)
-            {
-                case double v:
-                    writer.NewLine();
-                    if ((int)v == v)
-                    {
-                        writer.Write($"const int {name}({v});");
-                    }
-                    else if ((long)v == v)
-                    {
-                        writer.Write($"const int64_t {name}({v});");
-                    }
-                    else
-                    {
-                        writer.Write($"const double {name}({v});");
-                    }
-                    break;
-
-                case bool v:
-                    writer.NewLine();
-                    writer.Write($"const bool {name}(" + (v ? "true" : "false") + ");");
-                    break;
-
-                case string v:
-                    writer.NewLine();
-                    writer.Write($"inline e::system::string {name}()");
-                    using (writer.NewBlock())
-                    {
-                        writer.NewLine();
-                        writer.Write("return ");
-                        writer.WriteLiteral(v);
-                        writer.Write(";");
-                    }
-                    break;
-
-                case DateTime v:
-                    writer.NewLine();
-                    writer.Write($"const e::system::datetime {name}({v.ToOADate()}/*{v.ToString("yyyyMMddTHHmmss")}*/);");
-                    break;
-
-                case byte[] v:
-                    throw new Exception();
-                default:
-                    throw new Exception();
-            }
         }
 
         private static string GetFileNameByNamespace(string dest, string fullName, string ext)
@@ -1232,7 +1095,8 @@ namespace QIQI.EplOnCpp.Core
             {
                 CppName = cppName,
                 Getter = getter,
-                DataType = dataType
+                DataType = dataType,
+                Value = constantInfo.Value
             };
         }
 
