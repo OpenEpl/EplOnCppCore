@@ -59,9 +59,9 @@ namespace QIQI.EplOnCpp.Core.Expressions
                         CmdInfo.SuperTemplate.Name,
                         BindingFlags.Public | BindingFlags.Static,
                         null,
-                        new Type[] { typeof(CodeConverter), typeof(EocCallExpression) },
+                        new Type[] { typeof(CodeConverter), typeof(CodeWriter), typeof(EocCallExpression) },
                         null)
-                    .Invoke(null, new object[] { C, this });
+                    .Invoke(null, new object[] { C, writer, this });
                 return;
             }
 
