@@ -69,5 +69,15 @@ namespace QIQI.EplOnCpp.Core.Expressions
             }
             Writer.Write("}");
         }
+
+        public override void ProcessSubExpression(Func<EocExpression, EocExpression> processor, bool deep = true)
+        {
+            for (int i = 0; i < Item.Count; i++)
+            {
+                if(deep)
+                    Item[i].ProcessSubExpression(processor);
+                Item[i] = processor(Item[i]);
+            }
+        }
     }
 }

@@ -32,32 +32,30 @@ namespace QIQI.EplOnCpp.Core.Statements
             Mask = mask;
         }
 
+        public override EocStatement Optimize()
+        {
+            Condition = Condition?.Optimize();
+            if (Condition.TryGetConstValueWithCast(ProjectConverter.CppTypeName_Bool, out var x))
+            {
+                if ((bool)x == true)
+                {
+                    BlockOnFalse = new EocStatementBlock(C);
+                }
+                else
+                {
+                    BlockOnTrue = new EocStatementBlock(C);
+                }
+            }
+            BlockOnTrue = BlockOnTrue?.Optimize();
+            BlockOnFalse = BlockOnFalse?.Optimize();
+            return this;
+        }
+
         public override void WriteTo()
         {
             Writer.NewLine();
             if (Mask)
                 Writer.Write("// ");
-            else if (Condition.TryGetConstValueWithCast(ProjectConverter.CppTypeName_Bool, out var x))
-            {
-                if ((bool)x == true)
-                {
-                    Writer.AddComment(Comment);
-                    using (Writer.NewBlock())
-                    {
-                        BlockOnTrue.WriteTo();
-                    }
-                    return;
-                }
-                else
-                {
-                    Writer.AddComment(Comment);
-                    using (Writer.NewBlock())
-                    {
-                        BlockOnFalse.WriteTo();
-                    }
-                    return;
-                }
-            }
 
             Writer.Write("if (");
             Condition.WriteToWithCast(ProjectConverter.CppTypeName_Bool);

@@ -16,6 +16,7 @@ namespace QIQI.EplOnCpp.Core.Statements
         }
 
         public abstract void WriteTo();
+        public virtual EocStatement Optimize() => this;
 
         public static EocStatement Translate(CodeConverter converter, Statement item)
         {

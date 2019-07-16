@@ -21,6 +21,20 @@ namespace QIQI.EplOnCpp.Core.Statements
         public string Comment { get; set; }
         public bool Mask { get; set; }
 
+        public override EocStatement Optimize()
+        {
+            Condition = Condition?.Optimize();
+            if (!Mask && Condition.TryGetConstValueWithCast(ProjectConverter.CppTypeName_Bool, out var x))
+            {
+                if ((bool)x == false)
+                {
+                    return new EocExpressionStatement(C, null, Comment);
+                }
+            }
+            Block = Block?.Optimize();
+            return this;
+        }
+
         public EocIfStatement(CodeConverter c, EocExpression condition, EocStatementBlock block, bool mask, string comment) : base(c)
         {
             Condition = condition;
@@ -34,14 +48,6 @@ namespace QIQI.EplOnCpp.Core.Statements
             Writer.NewLine();
             if (Mask)
                 Writer.Write("// ");
-            else if (Condition.TryGetConstValueWithCast(ProjectConverter.CppTypeName_Bool, out var x))
-            {
-                if ((bool)x == false)
-                {
-                    Writer.AddComment(Comment);
-                    return;
-                }
-            }
             Writer.Write("if (");
             Condition.WriteToWithCast(ProjectConverter.CppTypeName_Bool);
             Writer.Write(")");

@@ -41,6 +41,16 @@ namespace QIQI.EplOnCpp.Core.Statements
         public string CommentOnStart { get; set; }
         public string CommentOnEnd { get; set; }
 
+        public override EocStatement Optimize()
+        {
+            Start = Start?.Optimize();
+            End = End?.Optimize();
+            Step = Step?.Optimize();
+            Var = Var?.Optimize();
+            Block = Block?.Optimize();
+            return this;
+        }
+
         public override void WriteTo()
         {
             if (Mask)

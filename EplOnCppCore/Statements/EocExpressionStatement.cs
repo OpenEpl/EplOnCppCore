@@ -33,6 +33,11 @@ namespace QIQI.EplOnCpp.Core.Statements
             Expr = expr;
             Comment = comment;
         }
+        public override EocStatement Optimize()
+        {
+            Expr = Expr?.Optimize();
+            return this;
+        }
 
         public override void WriteTo()
         {

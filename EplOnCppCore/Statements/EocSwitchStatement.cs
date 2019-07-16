@@ -21,6 +21,17 @@ namespace QIQI.EplOnCpp.Core.Statements
                 EocStatementBlock.Translate(C, stat.DefaultBlock));
         }
 
+        public override EocStatement Optimize()
+        {
+            Case.ForEach(x =>
+            {
+                x.Condition = x.Condition?.Optimize();
+                x.Block = x.Block?.Optimize();
+            });
+            DefaultBlock = DefaultBlock?.Optimize();
+            return this;
+        }
+
         public override void WriteTo()
         {
             foreach (var item in Case)

@@ -18,7 +18,7 @@ namespace QIQI.EplOnCpp.Core
         public MethodParameterInfo[] Parameters { get; }
         public Dictionary<int, MethodParameterInfo> ParamIdMap { get; }
         public Dictionary<int, LocalVariableInfo> LocalIdMap { get; }
-        public StatementBlock StatementBlock { get; }
+        public EocStatementBlock StatementBlock { get; set; }
 
         public CodeConverter(ProjectConverter projectConverter, CodeWriter writer, ClassInfo classItem, MethodInfo methodItem)
         {
@@ -29,7 +29,7 @@ namespace QIQI.EplOnCpp.Core
             this.Parameters = methodItem.Parameters;
             this.ParamIdMap = methodItem.Parameters.ToDictionary(x => x.Id);
             this.LocalIdMap = methodItem.Variables.ToDictionary(x => x.Id);
-            this.StatementBlock = CodeDataParser.ParseStatementBlock(methodItem.CodeData.ExpressionData, methodItem.CodeData.Encoding);
+            this.StatementBlock = EocStatementBlock.Translate(this, CodeDataParser.ParseStatementBlock(methodItem.CodeData.ExpressionData, methodItem.CodeData.Encoding));
         }
 
         private int TempVarId = 0;
@@ -37,6 +37,12 @@ namespace QIQI.EplOnCpp.Core
         public string AllocTempVar()
         {
             return $"eoc_temp{TempVarId++}";
+        }
+
+        public CodeConverter Optimize()
+        {
+            StatementBlock = StatementBlock.Optimize();
+            return this;
         }
 
         public void Generate()
@@ -73,7 +79,7 @@ namespace QIQI.EplOnCpp.Core
                     }
                 }
             }
-            EocStatementBlock.Translate(this, StatementBlock).WriteTo();
+            StatementBlock.WriteTo();
         }
 
         public void AddCommentLine(string comment)

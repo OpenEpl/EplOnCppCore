@@ -49,6 +49,26 @@ namespace QIQI.EplOnCpp.Core.Expressions
             return false;
         }
 
+        public void ProcessSubExpression(Action<EocExpression> processor, bool deep = true)
+        {
+            ProcessSubExpression(x =>
+            {
+                processor(x);
+                return x;
+            }, deep);
+        }
+
+        public virtual void ProcessSubExpression(Func<EocExpression, EocExpression> processor, bool deep = true)
+        {
+
+        }
+
+        public virtual EocExpression Optimize()
+        {
+            ProcessSubExpression(x => x.Optimize(), false);
+            return this;
+        }
+
         public static EocExpression Translate(CodeConverter C, Expression expr)
         {
             switch (expr)

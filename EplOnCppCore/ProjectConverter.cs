@@ -323,7 +323,7 @@ namespace QIQI.EplOnCpp.Core
             {
                 writer.Write("#pragma once");
                 writer.NewLine();
-                writer.Write("#include \"stdafx.h\"");
+                writer.Write("#include \"../../stdafx.h\"");
                 using (writer.NewNamespace(curNamespace))
                 {
                     ImplementGlobalVariable(writer, Source.Code.GlobalVariables);
@@ -824,7 +824,7 @@ namespace QIQI.EplOnCpp.Core
                 using (writer.NewBlock())
                 {
                     DefineLocalVariable(writer, item.Variables);
-                    new CodeConverter(this, writer, classItem, item).Generate();
+                    new CodeConverter(this, writer, classItem, item).Optimize().Generate();
                 }
             }
         }

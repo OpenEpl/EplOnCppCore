@@ -25,6 +25,13 @@ namespace QIQI.EplOnCpp.Core.Statements
             CommentOnStart = commentOnStart;
             CommentOnEnd = commentOnEnd;
         }
+        
+        public override EocStatement Optimize()
+        {
+            Condition = Condition?.Optimize();
+            Block = Block?.Optimize();
+            return this;
+        }
 
         public EocExpression Condition { get; set; }
         public EocStatementBlock Block { get; set; }
