@@ -331,32 +331,16 @@ namespace QIQI.EplOnCpp.Core
             }
 
             curNamespace = DllNamespace;
+            EocDll[] eocDllDeclares = EocDll.Translate(this, Source.Code.DllDeclares);
             fileName = GetFileNameByNamespace(dest, curNamespace, "h");
             using (var writer = new CodeWriter(fileName))
             {
-                writer.Write("#pragma once");
-                writer.NewLine();
-                writer.Write("#include \"type.h\"");
-                using (writer.NewNamespace(curNamespace))
-                {
-                    foreach (var item in Source.Code.DllDeclares)
-                    {
-                        DefineDll(writer, item);
-                    }
-                }
+                EocDll.Define(this, writer, eocDllDeclares);
             }
             fileName = GetFileNameByNamespace(dest, curNamespace, "cpp");
             using (var writer = new CodeWriter(fileName))
             {
-                writer.Write("#include \"dll.h\"");
-                writer.NewLine();
-                writer.Write("#include <e/system/dll_core.h>");
-                writer.NewLine();
-                writer.Write("#include <e/system/methodptr_caller.h>");
-                using (writer.NewNamespace(curNamespace))
-                {
-                    ImplementDll(writer, Source.Code.DllDeclares);
-                }
+                EocDll.Implement(this, writer, eocDllDeclares);
             }
 
             fileName = GetFileNameByNamespace(dest, "stdafx", "h");
@@ -502,85 +486,6 @@ namespace QIQI.EplOnCpp.Core
                     writer.WriteLine($"target_link_libraries(main ${{{libCMakeName}_LIBRARIES}})");
                     writer.WriteLine();
                 }
-            }
-        }
-
-        private void ImplementDll(CodeWriter writer, DllDeclareInfo[] dllDeclares)
-        {
-            var moduleMap = new Dictionary<string, string>();
-            var funcMap = new Dictionary<Tuple<string, string>, string>();
-            for (int i = 0, j = 0, k = 0; i < dllDeclares.Length; i++)
-            {
-                var item = dllDeclares[i];
-                if (!moduleMap.TryGetValue(item.LibraryName, out var dllIdInCpp))
-                {
-                    dllIdInCpp = (j++).ToString();
-                    moduleMap.Add(item.LibraryName, dllIdInCpp);
-                }
-                var dllEntryPointPair = new Tuple<string, string>(dllIdInCpp, item.EntryPoint);
-                if (!funcMap.ContainsKey(dllEntryPointPair))
-                {
-                    funcMap.Add(dllEntryPointPair, (k++).ToString());
-                }
-            }
-            using (writer.NewNamespace("eoc_module"))
-            {
-                foreach (var item in moduleMap)
-                {
-                    writer.NewLine();
-                    writer.Write($"eoc_DefineMoudleLoader({item.Value}, \"{item.Key}\");");
-                }
-            }
-            using (writer.NewNamespace("eoc_func"))
-            {
-                foreach (var item in funcMap)
-                {
-                    writer.NewLine();
-                    writer.Write($"eoc_DefineFuncPtrGetter({item.Value}, {DllNamespace}::eoc_module::GetMoudleHandle_{item.Key.Item1}(), \"{item.Key.Item2}\");");
-                }
-            }
-            foreach (var item in dllDeclares)
-            {
-                ImplementDllItem(writer, item, moduleMap, funcMap);
-            }
-        }
-
-        private void ImplementDllItem(CodeWriter writer, DllDeclareInfo item, Dictionary<string, string> moduleMap, Dictionary<Tuple<string, string>, string> funcMap)
-        {
-            var name = GetUserDefinedName_SimpleCppName(item.Id);
-            var eocCmdInfo = GetEocCmdInfo(item);
-            var paramName = item.Parameters.Select(x => GetUserDefinedName_SimpleCppName(x.Id)).ToArray();
-            string returnTypeString = eocCmdInfo.ReturnDataType == null ? "void" : eocCmdInfo.ReturnDataType.ToString();
-            string funcTypeString;
-            WriteMethodHeader(writer, eocCmdInfo, name, false, null, false);
-
-            {
-                var funcTypeStringBuilder = new StringBuilder();
-                funcTypeStringBuilder.Append(returnTypeString);
-                funcTypeStringBuilder.Append("(");
-                for (int i = 0; i < eocCmdInfo.Parameters.Count; i++)
-                {
-                    if (i != 0)
-                        funcTypeStringBuilder.Append(", ");
-                    funcTypeStringBuilder.Append(GetParameterTypeString(eocCmdInfo.Parameters[i]));
-                }
-                funcTypeStringBuilder.Append(")");
-                funcTypeString = funcTypeStringBuilder.ToString();
-            }
-
-            using (writer.NewBlock())
-            {
-                writer.NewLine();
-
-                writer.Write("return e::system::MethodPtrCaller<");
-                writer.Write(funcTypeString);
-                writer.Write(">::call(");
-
-                var funcId = funcMap[new Tuple<string, string>(moduleMap[item.LibraryName], item.EntryPoint)];
-                writer.Write($"{DllNamespace}::eoc_func::GetFuncPtr_{funcId}()");
-
-                writer.Write(string.Join("", paramName.Select(x => $", {x}")));
-                writer.Write(");");
             }
         }
 
@@ -1107,14 +1012,6 @@ namespace QIQI.EplOnCpp.Core
                     isVirtual = true;
                 }
             }
-            DefineMethod(writer, eocCmdInfo, name, isVirtual);
-        }
-
-        private void DefineDll(CodeWriter writer, DllDeclareInfo item)
-        {
-            var name = GetUserDefinedName_SimpleCppName(item.Id);
-            var eocCmdInfo = GetEocCmdInfo(item);
-            var isVirtual = false;
             DefineMethod(writer, eocCmdInfo, name, isVirtual);
         }
 
