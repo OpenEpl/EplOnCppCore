@@ -99,6 +99,12 @@ namespace QIQI.EplOnCpp.Core
         public int EocHelperLibId { get; }
         public int DataTypeId_IntPtr { get; }
         public EocProjectType ProjectType { get; }
+        public EocConstant[] EocConstants { get; }
+        public EocStruct[] EocStructs { get; }
+        public EocGlobalVariable[] EocGlobalVariables { get; }
+        public EocDll[] EocDllDeclares { get; }
+        public EocObjectClass[] EocObjectClasses { get; }
+        public EocStaticClass[] EocStaticClasses { get; }
         public IdToNameMap IdToNameMap { get; }
         public Dictionary<int, ClassInfo> ClassIdMap { get; }
         public Dictionary<int, MethodInfo> MethodIdMap { get; }
@@ -188,6 +194,13 @@ namespace QIQI.EplOnCpp.Core
             this.EocHelperLibId = Array.FindIndex(source.Code.Libraries, x => x.FileName.ToLower() == "EocHelper".ToLower());
             this.DataTypeId_IntPtr = this.EocHelperLibId == -1 ? -1 : EplSystemId.MakeLibDataTypeId((short)this.EocHelperLibId, 0);
             this.ProjectType = projectType;
+
+            this.EocConstants = EocConstant.Translate(this, Source.Resource.Constants);
+            this.EocStructs = EocStruct.Translate(this, Source.Code.Structs);
+            this.EocGlobalVariables = EocGlobalVariable.Translate(this, Source.Code.GlobalVariables);
+            this.EocDllDeclares = EocDll.Translate(this, Source.Code.DllDeclares);
+            this.EocObjectClasses = EocObjectClass.Translate(this, Source.Code.Classes.Where(x => EplSystemId.GetType(x.Id) == EplSystemId.Type_Class));
+            this.EocStaticClasses = EocStaticClass.Translate(this, Source.Code.Classes.Where(x => EplSystemId.GetType(x.Id) != EplSystemId.Type_Class));
         }
 
         public void Generate(string dest)
@@ -197,17 +210,26 @@ namespace QIQI.EplOnCpp.Core
                 throw new ArgumentNullException(nameof(dest));
             }
 
+            foreach (var eocObjectClass in EocObjectClasses)
+            {
+                eocObjectClass.ParseCode();
+                eocObjectClass.Optimize();
+            }
+
+            foreach (var eocStaticClass in EocStaticClasses)
+            {
+                eocStaticClass.ParseCode();
+                eocStaticClass.Optimize();
+            }
+
             string fileName;
 
             //常量
-            EocConstant[] eocConstants = EocConstant.Translate(this, Source.Resource.Constants);
             fileName = GetFileNameByNamespace(dest, ConstantNamespace, "h");
             using (var writer = new CodeWriter(fileName))
-                EocConstant.Define(this, writer, eocConstants);
+                EocConstant.Define(this, writer, EocConstants);
 
             //声明自定义数据类型（结构/对象类）
-            EocStruct[] eocStructs = EocStruct.Translate(this, Source.Code.Structs);
-            EocObjectClass[] eocObjectClasses = EocObjectClass.Translate(this, Source.Code.Classes.Where(x => EplSystemId.GetType(x.Id) == EplSystemId.Type_Class));
             fileName = GetFileNameByNamespace(dest, TypeNamespace, "h");
             using (var writer = new CodeWriter(fileName))
             {
@@ -219,25 +241,25 @@ namespace QIQI.EplOnCpp.Core
                 {
                     using (writer.NewNamespace("eoc_internal"))
                     {
-                        EocStruct.DefineRawName(this, writer, eocStructs);
-                        EocObjectClass.DefineRawName(this, writer, eocObjectClasses);
+                        EocStruct.DefineRawName(this, writer, EocStructs);
+                        EocObjectClass.DefineRawName(this, writer, EocObjectClasses);
                     }
-                    EocStruct.DefineName(this, writer, eocStructs);
-                    EocObjectClass.DefineName(this, writer, eocObjectClasses);
+                    EocStruct.DefineName(this, writer, EocStructs);
+                    EocObjectClass.DefineName(this, writer, EocObjectClasses);
                     using (writer.NewNamespace("eoc_internal"))
                     {
-                        EocStruct.DefineRawStructInfo(this, writer, eocStructs);
-                        EocObjectClass.DefineRawObjectClass(this, writer, eocObjectClasses);
+                        EocStruct.DefineRawStructInfo(this, writer, EocStructs);
+                        EocObjectClass.DefineRawObjectClass(this, writer, EocObjectClasses);
                     }
                 }
                 using (writer.NewNamespace("e::system"))
                 {
-                    EocStruct.DefineStructMarshaler(this, writer, eocStructs);
+                    EocStruct.DefineStructMarshaler(this, writer, EocStructs);
                 }
             }
 
             //实现 对象类
-            foreach (var item in eocObjectClasses)
+            foreach (var item in EocObjectClasses)
             {
                 fileName = GetFileNameByNamespace(dest, item.CppName, "cpp");
                 using (var writer = new CodeWriter(fileName))
@@ -245,8 +267,7 @@ namespace QIQI.EplOnCpp.Core
             }
 
             //静态类
-            EocStaticClass[] eocStaticClasses = EocStaticClass.Translate(this, Source.Code.Classes.Where(x => EplSystemId.GetType(x.Id) != EplSystemId.Type_Class));
-            foreach (var item in eocStaticClasses)
+            foreach (var item in EocStaticClasses)
             {
                 fileName = GetFileNameByNamespace(dest, item.CppName, "h");
                 using (var writer = new CodeWriter(fileName))
@@ -257,22 +278,20 @@ namespace QIQI.EplOnCpp.Core
             }
 
             //全局变量
-            EocGlobalVariable[] eocGlobalVariables = EocGlobalVariable.Translate(this, Source.Code.GlobalVariables);
             fileName = GetFileNameByNamespace(dest, GlobalNamespace, "h");
             using (var writer = new CodeWriter(fileName))
-                EocGlobalVariable.Define(this, writer, eocGlobalVariables);
+                EocGlobalVariable.Define(this, writer, EocGlobalVariables);
             fileName = GetFileNameByNamespace(dest, GlobalNamespace, "cpp");
             using (var writer = new CodeWriter(fileName))
-                EocGlobalVariable.Implement(this, writer, eocGlobalVariables);
+                EocGlobalVariable.Implement(this, writer, EocGlobalVariables);
 
             //DLL
-            EocDll[] eocDllDeclares = EocDll.Translate(this, Source.Code.DllDeclares);
             fileName = GetFileNameByNamespace(dest, DllNamespace, "h");
             using (var writer = new CodeWriter(fileName))
-                EocDll.Define(this, writer, eocDllDeclares);
+                EocDll.Define(this, writer, EocDllDeclares);
             fileName = GetFileNameByNamespace(dest, DllNamespace, "cpp");
             using (var writer = new CodeWriter(fileName))
-                EocDll.Implement(this, writer, eocDllDeclares);
+                EocDll.Implement(this, writer, EocDllDeclares);
 
             //预编译头
             fileName = GetFileNameByNamespace(dest, "stdafx", "h");
@@ -289,7 +308,7 @@ namespace QIQI.EplOnCpp.Core
                 writer.Write("#include \"e/user/dll.h\"");
                 writer.NewLine();
                 writer.Write("#include \"e/user/global.h\"");
-                foreach (var item in eocStaticClasses)
+                foreach (var item in EocStaticClasses)
                 {
                     fileName = item.CppName.Replace("::", "/") + ".h";
                     writer.NewLine();

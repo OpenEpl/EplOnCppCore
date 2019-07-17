@@ -44,6 +44,22 @@ namespace QIQI.EplOnCpp.Core
             Method = RawInfo.Method.Select(x => P.MethodIdMap[x]).Select(x => new CodeConverter(P, RawInfo, x)).ToList();
         }
 
+        public void ParseCode()
+        {
+            foreach (var item in Method)
+            {
+                item.ParseCode();
+            }
+        }
+
+        public void Optimize()
+        {
+            for (int i = 0; i < Method.Count; i++)
+            {
+                Method[i] = Method[i].Optimize();
+            }
+        }
+
         private void DefineRawName(CodeWriter writer)
         {
             writer.NewLine();

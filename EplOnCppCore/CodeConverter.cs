@@ -32,11 +32,16 @@ namespace QIQI.EplOnCpp.Core
             this.Parameters = methodItem.Parameters;
             this.ParamIdMap = methodItem.Parameters.ToDictionary(x => x.Id);
             this.LocalIdMap = methodItem.Variables.ToDictionary(x => x.Id);
+
+        }
+
+        public void ParseCode()
+        {
             using (new LoggerContextHelper(Logger)
                 .Set("class", P.IdToNameMap.GetUserDefinedName(ClassItem.Id))
                 .Set("method", P.IdToNameMap.GetUserDefinedName(MethodItem.Id)))
             {
-                this.StatementBlock = EocStatementBlock.Translate(this, CodeDataParser.ParseStatementBlock(methodItem.CodeData.ExpressionData, methodItem.CodeData.Encoding));
+                this.StatementBlock = EocStatementBlock.Translate(this, CodeDataParser.ParseStatementBlock(MethodItem.CodeData.ExpressionData, MethodItem.CodeData.Encoding));
             }
         }
 
@@ -53,41 +58,37 @@ namespace QIQI.EplOnCpp.Core
             return this;
         }
 
-        public void Generate(CodeWriter writer)
+        private void WriteOptionalParameterReader(CodeWriter writer)
         {
-            foreach (var x in Parameters)
+            foreach (var x in Parameters.Where(x => x.OptionalParameter))
             {
-                if (x.OptionalParameter)
+                var name = P.GetUserDefinedName_SimpleCppName(x.Id);
+                var realValueType = P.GetCppTypeName(x.DataType, x.ArrayParameter);
+                var nullParameter = P.GetNullParameter(x.DataType, x.ArrayParameter);
+                var initValue = P.GetInitValue(x.DataType, x.ArrayParameter);
+                writer.NewLine();
+                writer.Write($"bool eoc_isNull_{name} = !{name}.has_value();");
+                if (x.ByRef || x.ArrayParameter || !P.IsValueType(x.DataType))
                 {
-                    var name = P.GetUserDefinedName_SimpleCppName(x.Id);
-                    var realValueType = P.GetCppTypeName(x.DataType, x.ArrayParameter);
-                    var nullParameter = P.GetNullParameter(x.DataType, x.ArrayParameter);
-                    var initValue = P.GetInitValue(x.DataType, x.ArrayParameter);
                     writer.NewLine();
-                    writer.Write($"bool eoc_isNull_{name} = !{name}.has_value();");
-                    if (x.ByRef || x.ArrayParameter || !P.IsValueType(x.DataType))
+                    if (string.IsNullOrWhiteSpace(nullParameter))
                     {
-                        writer.NewLine();
-                        if (string.IsNullOrWhiteSpace(nullParameter))
-                        {
-                            writer.Write($"{realValueType} eoc_default_{name};");
-                        }
-                        else
-                        {
-                            writer.Write($"{realValueType} eoc_default_{name}({nullParameter});");
-                        }
-
-                        writer.NewLine();
-                        writer.Write($"{realValueType}& eoc_value_{name} = eoc_isNull_{name} ? (eoc_default_{name} = {initValue}) : {name}.value().get();");
+                        writer.Write($"{realValueType} eoc_default_{name};");
                     }
                     else
                     {
-                        writer.NewLine();
-                        writer.Write($"{realValueType} eoc_value_{name} = eoc_isNull_{name} ? {initValue} : {name}.value();");
+                        writer.Write($"{realValueType} eoc_default_{name}({nullParameter});");
                     }
+
+                    writer.NewLine();
+                    writer.Write($"{realValueType}& eoc_value_{name} = eoc_isNull_{name} ? (eoc_default_{name} = {initValue}) : {name}.value().get();");
+                }
+                else
+                {
+                    writer.NewLine();
+                    writer.Write($"{realValueType} eoc_value_{name} = eoc_isNull_{name} ? {initValue} : {name}.value();");
                 }
             }
-            StatementBlock.WriteTo(writer);
         }
 
         internal void DefineItem(CodeWriter writer)
@@ -116,7 +117,8 @@ namespace QIQI.EplOnCpp.Core
                 using (writer.NewBlock())
                 {
                     P.DefineVariable(writer, null, MethodItem.Variables);
-                    Optimize().Generate(writer);
+                    WriteOptionalParameterReader(writer);
+                    StatementBlock.WriteTo(writer);
                 }
             }
         }
