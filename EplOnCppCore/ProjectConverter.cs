@@ -297,27 +297,16 @@ namespace QIQI.EplOnCpp.Core
             }
 
             curNamespace = GlobalNamespace;
+            EocGlobalVariable[] eocGlobalVariables = EocGlobalVariable.Translate(this, Source.Code.GlobalVariables);
             fileName = GetFileNameByNamespace(dest, curNamespace, "h");
             using (var writer = new CodeWriter(fileName))
             {
-                writer.Write("#pragma once");
-                writer.NewLine();
-                writer.Write("#include \"type.h\"");
-                using (writer.NewNamespace(curNamespace))
-                {
-                    DefineVariable(writer, new string[] { "extern" }, Source.Code.GlobalVariables, false);
-                }
+                EocGlobalVariable.Define(this, writer, eocGlobalVariables);
             }
             fileName = GetFileNameByNamespace(dest, curNamespace, "cpp");
             using (var writer = new CodeWriter(fileName))
             {
-                writer.Write("#pragma once");
-                writer.NewLine();
-                writer.Write("#include \"../../stdafx.h\"");
-                using (writer.NewNamespace(curNamespace))
-                {
-                    DefineVariable(writer, null, Source.Code.GlobalVariables);
-                }
+                EocGlobalVariable.Implement(this, writer, eocGlobalVariables);
             }
 
             curNamespace = DllNamespace;
@@ -775,7 +764,7 @@ namespace QIQI.EplOnCpp.Core
             }
         }
 
-        private void DefineVariable(CodeWriter writer, string[] modifiers, AbstractVariableInfo variable, bool initAtOnce = true)
+        internal void DefineVariable(CodeWriter writer, string[] modifiers, AbstractVariableInfo variable, bool initAtOnce = true)
         {
             writer.NewLine();
             if (modifiers != null)
@@ -802,7 +791,7 @@ namespace QIQI.EplOnCpp.Core
             writer.Write(";");
         }
 
-        private void DefineVariable(CodeWriter writer, string[] modifiers, IEnumerable<AbstractVariableInfo> collection, bool initAtOnce = true)
+        internal void DefineVariable(CodeWriter writer, string[] modifiers, IEnumerable<AbstractVariableInfo> collection, bool initAtOnce = true)
         {
             foreach (var item in collection)
             {
