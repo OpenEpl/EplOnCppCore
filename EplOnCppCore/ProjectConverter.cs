@@ -211,36 +211,31 @@ namespace QIQI.EplOnCpp.Core
             }
 
             curNamespace = TypeNamespace;
+            EocStruct[] eocStructs = EocStruct.Translate(this, Source.Code.Structs);
             fileName = GetFileNameByNamespace(dest, curNamespace, "h");
             using (var writer = new CodeWriter(fileName))
             {
                 writer.Write("#pragma once");
                 writer.NewLine();
                 writer.Write("#include <e/system/basic_type.h>");
-                for (int i = 0; i < Source.Code.Libraries.Length; i++)
-                {
-                    if (EocLibs[i] == null)
-                        continue;
-                    LibraryRefInfo item = Source.Code.Libraries[i];
-                    writer.NewLine();
-                    writer.Write($"#include <e/lib/{item.FileName}/public.h>");
-                }
+                ReferenceEocLibs(writer);
                 using (writer.NewNamespace(curNamespace))
                 {
-                    DefineStructNames(writer, Source.Code.Structs);
+                    using (writer.NewNamespace("eoc_internal"))
+                    {
+                        EocStruct.DefineRawName(this, writer, eocStructs);
+                    }
+                    EocStruct.DefineName(this, writer, eocStructs);
                     DefineObjectClassNames(writer, Source.Code.Classes);
                     using (writer.NewNamespace("eoc_internal"))
                     {
-                        foreach (var item in Source.Code.Structs)
-                        {
-                            DefineInternalStructInfo(writer, item);
-                        }
+                        EocStruct.DefineRawStructInfo(this, writer, eocStructs);
                         DefineInternalObjectClassInfo(writer, Source.Code.Classes);
                     }
                 }
                 using (writer.NewNamespace("e::system"))
                 {
-                    DefineStructMarshaler(writer, Source.Code.Structs);
+                    EocStruct.DefineStructMarshaler(this, writer, eocStructs);
                 }
             }
 
@@ -468,97 +463,15 @@ namespace QIQI.EplOnCpp.Core
             }
         }
 
-        private void DefineStructMarshaler(CodeWriter writer, IEnumerable<StructInfo> collection)
+        private void ReferenceEocLibs(CodeWriter writer)
         {
-            var graph = new AdjacencyGraph<StructInfo, IEdge<StructInfo>>();
-            foreach (var item in collection)
+            for (int i = 0; i < Source.Code.Libraries.Length; i++)
             {
-                var hasDependentItem = false;
-                foreach (var member in item.Member)
-                {
-                    if (EplSystemId.GetType(member.DataType) == EplSystemId.Type_Struct
-                        && StructIdMap.TryGetValue(member.DataType, out var memberType))
-                    {
-                        graph.AddVerticesAndEdge(new Edge<StructInfo>(memberType, item));
-                        hasDependentItem = true;
-                    }
-                }
-                if (!hasDependentItem)
-                {
-                    graph.AddVertex(item);
-                }
-            }
-
-            foreach (var item in graph.TopologicalSort())
-            {
-                DefineStructMarshaler(writer, item);
-            }
-        }
-
-        private void DefineStructMarshaler(CodeWriter writer, StructInfo item)
-        {
-            var cppTypeString = GetCppTypeName(item.Id).ToString();
-            writer.NewLine();
-            writer.Write("template<> struct marshaler<");
-            writer.Write(cppTypeString);
-            writer.Write(">");
-            using (writer.NewBlock())
-            {
+                if (EocLibs[i] == null)
+                    continue;
+                LibraryRefInfo item = Source.Code.Libraries[i];
                 writer.NewLine();
-                writer.Write("private: ");
-
-                writer.NewLine();
-                writer.Write("using ManagedType = ");
-                writer.Write(cppTypeString);
-                writer.Write(";");
-
-                writer.NewLine();
-                writer.Write("public: ");
-
-                writer.NewLine();
-                writer.Write("static constexpr bool SameMemoryStruct = false;");
-
-                writer.NewLine();
-                writer.Write("#pragma pack(push)");
-                writer.NewLine();
-                writer.Write("#pragma pack(1)");
-
-                writer.NewLine();
-                writer.Write("struct NativeType");
-                WriteStructMarshalerCodeBlock(writer, item, "DefineMember");
-                writer.Write(";");
-
-                writer.NewLine();
-                writer.Write("#pragma pack(pop)");
-
-                writer.NewLine();
-                writer.Write("static void marshal(NativeType &v, ManagedType &r)");
-                WriteStructMarshalerCodeBlock(writer, item, "MarshalMember");
-                writer.Write(";");
-
-                writer.NewLine();
-                writer.Write("static void cleanup(NativeType &v, ManagedType &r)");
-                WriteStructMarshalerCodeBlock(writer, item, "CleanupMember");
-                writer.Write(";");
-            }
-            writer.Write(";");
-        }
-
-        private void WriteStructMarshalerCodeBlock(CodeWriter writer, StructInfo item, string cmd)
-        {
-            using (writer.NewBlock())
-            {
-                foreach (var member in item.Member)
-                {
-                    var memberCppName = GetUserDefinedName_SimpleCppName(member.Id);
-                    writer.NewLine();
-                    if (member.ByRef)
-                        writer.Write($"StructMarshaler_{cmd}_Ref(ManagedType, {memberCppName});");
-                    else if (member.UBound != null && member.UBound.Length != 0)
-                        writer.Write($"StructMarshaler_{cmd}_Array(ManagedType, {memberCppName}, {CalculateArraySize(member.UBound)});");
-                    else
-                        writer.Write($"StructMarshaler_{cmd}(ManagedType, {memberCppName});");
-                }
+                writer.Write($"#include <e/lib/{item.FileName}/public.h>");
             }
         }
 
@@ -747,7 +660,7 @@ namespace QIQI.EplOnCpp.Core
             }
         }
 
-        private void InitMembersInConstructor(CodeWriter writer, IEnumerable<AbstractVariableInfo> collection)
+        internal void InitMembersInConstructor(CodeWriter writer, IEnumerable<AbstractVariableInfo> collection)
         {
             bool first = true;
             foreach (var item in collection)
@@ -797,51 +710,6 @@ namespace QIQI.EplOnCpp.Core
             {
                 DefineVariable(writer, modifiers, item, initAtOnce);
             }
-        }
-
-        private void DefineStructNames(CodeWriter writer, IEnumerable<StructInfo> collection)
-        {
-            using (writer.NewNamespace("eoc_internal"))
-            {
-                foreach (var item in collection)
-                {
-                    var name = GetUserDefinedName_SimpleCppName(item.Id);
-                    var rawName = "raw_" + name;
-                    writer.NewLine();
-                    writer.Write($"struct {rawName};");
-                }
-            }
-            foreach (var item in collection)
-            {
-                var name = GetUserDefinedName_SimpleCppName(item.Id);
-                var rawName = "raw_" + name;
-                writer.NewLine();
-                writer.Write($"typedef e::system::struct_ptr<{TypeNamespace}::eoc_internal::{rawName}> {name};");
-            }
-        }
-
-        private void DefineInternalStructInfo(CodeWriter writer, StructInfo item)
-        {
-            var name = GetUserDefinedName_SimpleCppName(item.Id);
-            var rawName = "raw_" + name;
-            writer.NewLine();
-            writer.Write($"struct {rawName}");
-            using (writer.NewBlock())
-            {
-                DefineVariable(writer, null, item.Member, false);
-
-                writer.NewLine();
-                writer.Write($"{rawName}()");
-                if (item.Member.Length != 0)
-                {
-                    writer.Write(": ");
-                    InitMembersInConstructor(writer, item.Member);
-                }
-                using (writer.NewBlock())
-                {
-                }
-            }
-            writer.Write(";");
         }
 
         internal void DefineMethod(CodeWriter writer, EocCmdInfo eocCmdInfo, string name, bool isVirtual)
