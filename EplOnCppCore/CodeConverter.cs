@@ -1,7 +1,6 @@
 ﻿using QIQI.EplOnCpp.Core.Expressions;
 using QIQI.EplOnCpp.Core.Statements;
 using QIQI.EProjectFile;
-using QIQI.EProjectFile.Statements;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -11,6 +10,9 @@ namespace QIQI.EplOnCpp.Core
     public class CodeConverter
     {
         public ProjectConverter P { get; }
+        public string Name { get; }
+        public EocCmdInfo EocCmdInfo { get; }
+        public bool IsClassMember { get; }
         public ClassInfo ClassItem { get; }
         public MethodInfo MethodItem { get; }
         public ILoggerWithContext Logger => P.Logger;
@@ -22,12 +24,20 @@ namespace QIQI.EplOnCpp.Core
         public CodeConverter(ProjectConverter projectConverter, ClassInfo classItem, MethodInfo methodItem)
         {
             this.P = projectConverter;
+            this.Name = P.GetUserDefinedName_SimpleCppName(methodItem.Id);
+            this.EocCmdInfo = P.GetEocCmdInfo(methodItem);
+            this.IsClassMember = EplSystemId.GetType(classItem.Id) == EplSystemId.Type_Class;
             this.ClassItem = classItem;
             this.MethodItem = methodItem;
             this.Parameters = methodItem.Parameters;
             this.ParamIdMap = methodItem.Parameters.ToDictionary(x => x.Id);
             this.LocalIdMap = methodItem.Variables.ToDictionary(x => x.Id);
-            this.StatementBlock = EocStatementBlock.Translate(this, CodeDataParser.ParseStatementBlock(methodItem.CodeData.ExpressionData, methodItem.CodeData.Encoding));
+            using (new LoggerContextHelper(Logger)
+                .Set("class", P.IdToNameMap.GetUserDefinedName(ClassItem.Id))
+                .Set("method", P.IdToNameMap.GetUserDefinedName(MethodItem.Id)))
+            {
+                this.StatementBlock = EocStatementBlock.Translate(this, CodeDataParser.ParseStatementBlock(methodItem.CodeData.ExpressionData, methodItem.CodeData.Encoding));
+            }
         }
 
         private int TempVarId = 0;
@@ -78,6 +88,37 @@ namespace QIQI.EplOnCpp.Core
                 }
             }
             StatementBlock.WriteTo(writer);
+        }
+
+        internal void DefineItem(CodeWriter writer)
+        {
+            var isVirtual = false;
+            if (IsClassMember)
+            {
+                writer.NewLine();
+                writer.Write(MethodItem.Public ? "public:" : "private:");
+                if (MethodItem.Name != "_初始化" && MethodItem.Name != "_销毁")
+                {
+                    isVirtual = true;
+                }
+            }
+            P.DefineMethod(writer, EocCmdInfo, Name, isVirtual);
+        }
+
+        internal void ImplementItem(CodeWriter writer)
+        {
+            using (new LoggerContextHelper(Logger)
+                .Set("class", P.IdToNameMap.GetUserDefinedName(ClassItem.Id))
+                .Set("method", P.IdToNameMap.GetUserDefinedName(MethodItem.Id)))
+            {
+                var classRawName = "raw_" + P.GetUserDefinedName_SimpleCppName(ClassItem.Id);
+                P.WriteMethodHeader(writer, EocCmdInfo, Name, false, IsClassMember ? classRawName : null, false);
+                using (writer.NewBlock())
+                {
+                    P.DefineVariable(writer, null, MethodItem.Variables);
+                    Optimize().Generate(writer);
+                }
+            }
         }
 
         public void WriteLetExpression(CodeWriter writer, EocExpression target, Action writeValue)

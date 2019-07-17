@@ -1,8 +1,6 @@
 ﻿using QIQI.EProjectFile;
 using QIQI.EProjectFile.Expressions;
 using QIQI.EProjectFile.LibInfo;
-using QuickGraph;
-using QuickGraph.Algorithms;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -200,37 +198,36 @@ namespace QIQI.EplOnCpp.Core
             }
 
             string fileName;
-            string curNamespace;
 
-            curNamespace = ConstantNamespace;
+            //常量
             EocConstant[] eocConstants = EocConstant.Translate(this, Source.Resource.Constants);
-            fileName = GetFileNameByNamespace(dest, curNamespace, "h");
+            fileName = GetFileNameByNamespace(dest, ConstantNamespace, "h");
             using (var writer = new CodeWriter(fileName))
-            {
                 EocConstant.Define(this, writer, eocConstants);
-            }
 
-            curNamespace = TypeNamespace;
+            //声明自定义数据类型（结构/对象类）
             EocStruct[] eocStructs = EocStruct.Translate(this, Source.Code.Structs);
-            fileName = GetFileNameByNamespace(dest, curNamespace, "h");
+            EocObjectClass[] eocObjectClasses = EocObjectClass.Translate(this, Source.Code.Classes.Where(x => EplSystemId.GetType(x.Id) == EplSystemId.Type_Class));
+            fileName = GetFileNameByNamespace(dest, TypeNamespace, "h");
             using (var writer = new CodeWriter(fileName))
             {
                 writer.Write("#pragma once");
                 writer.NewLine();
                 writer.Write("#include <e/system/basic_type.h>");
                 ReferenceEocLibs(writer);
-                using (writer.NewNamespace(curNamespace))
+                using (writer.NewNamespace(TypeNamespace))
                 {
                     using (writer.NewNamespace("eoc_internal"))
                     {
                         EocStruct.DefineRawName(this, writer, eocStructs);
+                        EocObjectClass.DefineRawName(this, writer, eocObjectClasses);
                     }
                     EocStruct.DefineName(this, writer, eocStructs);
-                    DefineObjectClassNames(writer, Source.Code.Classes);
+                    EocObjectClass.DefineName(this, writer, eocObjectClasses);
                     using (writer.NewNamespace("eoc_internal"))
                     {
                         EocStruct.DefineRawStructInfo(this, writer, eocStructs);
-                        DefineInternalObjectClassInfo(writer, Source.Code.Classes);
+                        EocObjectClass.DefineRawObjectClass(this, writer, eocObjectClasses);
                     }
                 }
                 using (writer.NewNamespace("e::system"))
@@ -239,84 +236,45 @@ namespace QIQI.EplOnCpp.Core
                 }
             }
 
-            curNamespace = CmdNamespace;
-            foreach (var classItem in Source.Code.Classes)
+            //实现 对象类
+            foreach (var item in eocObjectClasses)
             {
-                if (EplSystemId.GetType(classItem.Id) == EplSystemId.Type_Class)
-                    continue;
-                fileName = GetFileNameByNamespace(dest, curNamespace + "::" + IdToNameMap.GetUserDefinedName(classItem.Id), "h");
+                fileName = GetFileNameByNamespace(dest, item.CppName, "cpp");
                 using (var writer = new CodeWriter(fileName))
-                {
-                    writer.Write("#pragma once");
-                    writer.NewLine();
-                    writer.Write("#include \"../type.h\"");
-                    using (writer.NewNamespace(curNamespace))
-                    {
-                        DefineStaticClassInfo(writer, classItem);
-                    }
-                }
-            }
-            foreach (var classItem in Source.Code.Classes)
-            {
-                if (EplSystemId.GetType(classItem.Id) == EplSystemId.Type_Class)
-                    continue;
-                fileName = GetFileNameByNamespace(dest, curNamespace + "::" + IdToNameMap.GetUserDefinedName(classItem.Id), "cpp");
-                using (var writer = new CodeWriter(fileName))
-                {
-                    writer.Write("#pragma once");
-                    writer.NewLine();
-                    writer.Write("#include \"../../../stdafx.h\"");
-                    using (writer.NewNamespace(curNamespace))
-                    {
-                        ImplementStaticClass(writer, classItem);
-                    }
-                }
+                    item.ImplementRawObjectClass(writer);
             }
 
-            curNamespace = TypeNamespace;
-            foreach (var classItem in Source.Code.Classes)
+            //静态类
+            EocStaticClass[] eocStaticClasses = EocStaticClass.Translate(this, Source.Code.Classes.Where(x => EplSystemId.GetType(x.Id) != EplSystemId.Type_Class));
+            foreach (var item in eocStaticClasses)
             {
-                if (EplSystemId.GetType(classItem.Id) != EplSystemId.Type_Class)
-                    continue;
-                fileName = GetFileNameByNamespace(dest, curNamespace + "::" + IdToNameMap.GetUserDefinedName(classItem.Id), "cpp");
+                fileName = GetFileNameByNamespace(dest, item.CppName, "h");
                 using (var writer = new CodeWriter(fileName))
-                {
-                    writer.Write("#pragma once");
-                    writer.NewLine();
-                    writer.Write("#include \"../../../stdafx.h\"");
-                    using (writer.NewNamespace(curNamespace))
-                    {
-                        ImplementObjectClass(writer, classItem);
-                    }
-                }
+                    item.Define(writer);
+                fileName = GetFileNameByNamespace(dest, item.CppName, "cpp");
+                using (var writer = new CodeWriter(fileName))
+                    item.Implement(writer);
             }
 
-            curNamespace = GlobalNamespace;
+            //全局变量
             EocGlobalVariable[] eocGlobalVariables = EocGlobalVariable.Translate(this, Source.Code.GlobalVariables);
-            fileName = GetFileNameByNamespace(dest, curNamespace, "h");
+            fileName = GetFileNameByNamespace(dest, GlobalNamespace, "h");
             using (var writer = new CodeWriter(fileName))
-            {
                 EocGlobalVariable.Define(this, writer, eocGlobalVariables);
-            }
-            fileName = GetFileNameByNamespace(dest, curNamespace, "cpp");
+            fileName = GetFileNameByNamespace(dest, GlobalNamespace, "cpp");
             using (var writer = new CodeWriter(fileName))
-            {
                 EocGlobalVariable.Implement(this, writer, eocGlobalVariables);
-            }
 
-            curNamespace = DllNamespace;
+            //DLL
             EocDll[] eocDllDeclares = EocDll.Translate(this, Source.Code.DllDeclares);
-            fileName = GetFileNameByNamespace(dest, curNamespace, "h");
+            fileName = GetFileNameByNamespace(dest, DllNamespace, "h");
             using (var writer = new CodeWriter(fileName))
-            {
                 EocDll.Define(this, writer, eocDllDeclares);
-            }
-            fileName = GetFileNameByNamespace(dest, curNamespace, "cpp");
+            fileName = GetFileNameByNamespace(dest, DllNamespace, "cpp");
             using (var writer = new CodeWriter(fileName))
-            {
                 EocDll.Implement(this, writer, eocDllDeclares);
-            }
 
+            //预编译头
             fileName = GetFileNameByNamespace(dest, "stdafx", "h");
             using (var writer = new CodeWriter(fileName))
             {
@@ -331,16 +289,15 @@ namespace QIQI.EplOnCpp.Core
                 writer.Write("#include \"e/user/dll.h\"");
                 writer.NewLine();
                 writer.Write("#include \"e/user/global.h\"");
-                foreach (var classItem in Source.Code.Classes)
+                foreach (var item in eocStaticClasses)
                 {
-                    if (EplSystemId.GetType(classItem.Id) == EplSystemId.Type_Class)
-                        continue;
-                    fileName = CmdNamespace.Replace("::", "/") + "/" + IdToNameMap.GetUserDefinedName(classItem.Id) + ".h";
+                    fileName = item.CppName.Replace("::", "/") + ".h";
                     writer.NewLine();
                     writer.Write($"#include \"{fileName}\"");
                 }
             }
 
+            //程序入口
             fileName = GetFileNameByNamespace(dest, "main", "cpp");
             using (var writer = new CodeWriter(fileName))
             {
@@ -401,6 +358,7 @@ namespace QIQI.EplOnCpp.Core
                 }
             }
 
+            //CMake项目配置文件
             fileName = Path.Combine(dest, "CMakeLists.txt");
             using (var writer = new StreamWriter(File.Create(fileName), Encoding.Default))
             {
@@ -472,191 +430,6 @@ namespace QIQI.EplOnCpp.Core
                 LibraryRefInfo item = Source.Code.Libraries[i];
                 writer.NewLine();
                 writer.Write($"#include <e/lib/{item.FileName}/public.h>");
-            }
-        }
-
-        private void DefineObjectClassNames(CodeWriter writer, IEnumerable<ClassInfo> collection)
-        {
-            using (writer.NewNamespace("eoc_internal"))
-            {
-                foreach (var item in collection)
-                {
-                    if (EplSystemId.GetType(item.Id) != EplSystemId.Type_Class)
-                        continue;
-                    var name = GetUserDefinedName_SimpleCppName(item.Id);
-                    var rawName = "raw_" + name;
-                    writer.NewLine();
-                    writer.Write($"class {rawName};");
-                }
-            }
-            foreach (var item in collection)
-            {
-                if (EplSystemId.GetType(item.Id) != EplSystemId.Type_Class)
-                    continue;
-                var name = GetUserDefinedName_SimpleCppName(item.Id);
-                var rawName = "raw_" + name;
-                writer.NewLine();
-                writer.Write($"typedef e::system::object_ptr<{TypeNamespace}::eoc_internal::{rawName}> {name};");
-            }
-        }
-
-        private void DefineStaticClassInfo(CodeWriter writer, ClassInfo classItem)
-        {
-            foreach (var item in classItem.Method.Select(x => MethodIdMap[x]))
-            {
-                DefineMethod(writer, classItem, item);
-            }
-        }
-
-        private void DefineInternalObjectClassInfo(CodeWriter writer, IEnumerable<ClassInfo> collection)
-        {
-            var graph = new AdjacencyGraph<ClassInfo, IEdge<ClassInfo>>();
-            foreach (var item in collection)
-            {
-                if (EplSystemId.GetType(item.Id) != EplSystemId.Type_Class)
-                    continue;
-                if (ClassIdMap.TryGetValue(item.BaseClass, out var baseClassInfo))
-                {
-                    graph.AddVerticesAndEdge(new Edge<ClassInfo>(baseClassInfo, item));
-                }
-                else
-                {
-                    graph.AddVertex(item);
-                }
-            }
-
-            foreach (var item in graph.TopologicalSort())
-            {
-                DefineInternalObjectClassInfo(writer, item);
-            }
-        }
-
-        private void DefineInternalObjectClassInfo(CodeWriter writer, ClassInfo classItem)
-        {
-            var name = GetUserDefinedName_SimpleCppName(classItem.Id);
-            var rawName = "raw_" + name;
-            writer.NewLine();
-            writer.Write($"class {rawName}");
-            if (classItem.BaseClass != -1)
-            {
-                writer.Write(": public ");
-                writer.Write(TypeNamespace);
-                writer.Write("::eoc_internal::");
-                writer.Write("raw_" + GetUserDefinedName_SimpleCppName(classItem.BaseClass));
-            }
-            else
-            {
-                writer.Write(": public e::system::basic_object");
-            }
-            using (writer.NewBlock())
-            {
-                writer.NewLine();
-                if (classItem.Variables.Length != 0)
-                {
-                    writer.Write("private:");
-                    DefineVariable(writer, null, classItem.Variables, false);
-                }
-                writer.NewLine();
-                writer.Write("public:");
-                writer.NewLine();
-                writer.Write($"{rawName}();");
-                writer.NewLine();
-                writer.Write($"{rawName}(const {rawName}&);");
-                writer.NewLine();
-                writer.Write($"virtual ~{rawName}();");
-                writer.NewLine();
-                writer.Write($"virtual e::system::basic_object* __stdcall clone();");
-                foreach (var item in classItem.Method.Select(x => MethodIdMap[x]))
-                {
-                    DefineMethod(writer, classItem, item);
-                }
-            }
-            writer.Write(";");
-        }
-
-        private void ImplementMethod(CodeWriter writer, ClassInfo classItem, MethodInfo item)
-        {
-            using (new LoggerContextHelper(Logger)
-                .Set("class", IdToNameMap.GetUserDefinedName(classItem.Id))
-                .Set("method", IdToNameMap.GetUserDefinedName(item.Id)))
-            {
-                var isClassMember = EplSystemId.GetType(classItem.Id) == EplSystemId.Type_Class;
-                var name = GetUserDefinedName_SimpleCppName(item.Id);
-                var clsRawName = "raw_" + GetUserDefinedName_SimpleCppName(classItem.Id);
-                var eocCmdInfo = GetEocCmdInfo(item);
-                WriteMethodHeader(writer, eocCmdInfo, name, false, isClassMember ? clsRawName : null, false);
-                using (writer.NewBlock())
-                {
-                    DefineVariable(writer, null, item.Variables);
-                    new CodeConverter(this, classItem, item).Optimize().Generate(writer);
-                }
-            }
-        }
-
-        private void ImplementStaticClass(CodeWriter writer, ClassInfo classItem)
-        {
-            if (classItem.Variables.Length > 0)
-            {
-                using (writer.NewNamespace(GetUserDefinedName_SimpleCppName(classItem.Id)))
-                {
-                    DefineVariable(writer, new string[] { "static" }, classItem.Variables);
-                }
-            }
-            foreach (var item in classItem.Method.Select(x => MethodIdMap[x]))
-            {
-                ImplementMethod(writer, classItem, item);
-            }
-        }
-
-        private void ImplementObjectClass(CodeWriter writer, ClassInfo classItem)
-        {
-            var name = GetUserDefinedName_SimpleCppName(classItem.Id);
-            var rawName = "raw_" + name;
-            bool hasInitMethod = classItem.Method.Where(x => IdToNameMap.GetUserDefinedName(x) == "_初始化").Count() != 0;
-            bool hasDestroyMethod = classItem.Method.Where(x => IdToNameMap.GetUserDefinedName(x) == "_销毁").Count() != 0;
-            using (writer.NewNamespace("eoc_internal"))
-            {
-                writer.NewLine();
-                writer.Write($"{rawName}::{rawName}()");
-                if (classItem.Variables.Length != 0)
-                {
-                    writer.Write(": ");
-                    InitMembersInConstructor(writer, classItem.Variables);
-                }
-                using (writer.NewBlock())
-                {
-                    if (hasInitMethod)
-                    {
-                        writer.NewLine();
-                        writer.Write("this->_初始化();");
-                    }
-                }
-                writer.NewLine();
-                writer.Write($"{rawName}::~{rawName}()");
-                using (writer.NewBlock())
-                {
-                    if (hasDestroyMethod)
-                    {
-                        writer.NewLine();
-                        writer.Write("this->_销毁();");
-                    }
-                }
-
-                writer.NewLine();
-                writer.Write($"{rawName}::{rawName}(const {rawName}&) = default;");
-
-                writer.NewLine();
-                writer.Write($"e::system::basic_object* {rawName}::clone()");
-                using (writer.NewBlock())
-                {
-                    writer.NewLine();
-                    writer.Write($"return new {rawName}(*this);");
-                }
-
-                foreach (var item in classItem.Method.Select(x => MethodIdMap[x]))
-                {
-                    ImplementMethod(writer, classItem, item);
-                }
             }
         }
 
@@ -769,24 +542,6 @@ namespace QIQI.EplOnCpp.Core
                 }
             }
             writer.Write(")");
-        }
-
-        private void DefineMethod(CodeWriter writer, ClassInfo classItem, MethodInfo item)
-        {
-            var isClassMember = EplSystemId.GetType(classItem.Id) == EplSystemId.Type_Class;
-            var name = GetUserDefinedName_SimpleCppName(item.Id);
-            var eocCmdInfo = GetEocCmdInfo(item);
-            var isVirtual = false;
-            if (isClassMember)
-            {
-                writer.NewLine();
-                writer.Write(item.Public ? "public:" : "private:");
-                if (item.Name != "_初始化" && item.Name != "_销毁")
-                {
-                    isVirtual = true;
-                }
-            }
-            DefineMethod(writer, eocCmdInfo, name, isVirtual);
         }
 
         private static string GetFileNameByNamespace(string dest, string fullName, string ext)
