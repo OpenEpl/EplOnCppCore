@@ -8,7 +8,7 @@ namespace QIQI.EplOnCpp.Core
 {
     public class EocConstant
     {
-        public ProjectConverter P;
+        public ProjectConverter P { get; }
 
         public EocConstant(ProjectConverter p, string name, EocConstantInfo info)
         {
