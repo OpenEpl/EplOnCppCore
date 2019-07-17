@@ -419,6 +419,20 @@ namespace QIQI.EplOnCpp.Core
                     writer.WriteLine();
                 }
             }
+
+            //VSCode配置文件
+            fileName = Path.Combine(dest, ".vscode", "settings.json");
+            Directory.CreateDirectory(Path.GetDirectoryName(fileName));
+            using (var writer = new StreamWriter(File.Create(fileName), Encoding.Default))
+            {
+                writer.WriteLine("{");
+                writer.WriteLine("    \"C_Cpp.default.configurationProvider\": \"vector - of - bool.cmake - tools\",");
+                writer.WriteLine("    \"files.encoding\": \"gb18030\",");
+                writer.WriteLine("    \"files.exclude\": {");
+                writer.WriteLine("        \"build\": true");
+                writer.WriteLine("    }");
+                writer.WriteLine("}");
+            }
         }
 
         private void ReferenceEocLibs(CodeWriter writer)
