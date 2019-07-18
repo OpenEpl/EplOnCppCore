@@ -1,4 +1,5 @@
 ﻿using QIQI.EProjectFile.Expressions;
+using System;
 
 namespace QIQI.EplOnCpp.Core.Expressions
 {
@@ -16,7 +17,7 @@ namespace QIQI.EplOnCpp.Core.Expressions
             MemberInfo = memberInfo;
         }
 
-        public EocExpression Target { get; }
+        public EocExpression Target { get; set; }
         public EocMemberInfo MemberInfo { get; }
 
         public override CppTypeName GetResultType()
@@ -47,6 +48,16 @@ namespace QIQI.EplOnCpp.Core.Expressions
             if (!MemberInfo.Referencable)
             {
                 writer.Write(")");
+            }
+        }
+
+        public override void ProcessSubExpression(Func<EocExpression, EocExpression> processor, bool deep = true)
+        {
+            if (Target != null)
+            {
+                if (deep)
+                    Target.ProcessSubExpression(processor, deep);
+                Target = processor(Target);
             }
         }
     }

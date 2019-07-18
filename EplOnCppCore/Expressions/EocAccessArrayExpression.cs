@@ -18,8 +18,8 @@ namespace QIQI.EplOnCpp.Core.Expressions
             Index = index;
         }
 
-        public EocExpression Target { get; }
-        public EocExpression Index { get; }
+        public EocExpression Target { get; set; }
+        public EocExpression Index { get; set; }
 
         public override CppTypeName GetResultType()
         {
@@ -63,6 +63,22 @@ namespace QIQI.EplOnCpp.Core.Expressions
                 item.WriteTo(writer);
             }
             writer.Write(")");
+        }
+
+        public override void ProcessSubExpression(Func<EocExpression, EocExpression> processor, bool deep = true)
+        {
+            if (Target != null)
+            {
+                if (deep)
+                    Target.ProcessSubExpression(processor, deep);
+                Target = processor(Target);
+            }
+            if (Index != null)
+            {
+                if (deep)
+                    Index.ProcessSubExpression(processor, deep);
+                Index = processor(Index);
+            }
         }
     }
 }
