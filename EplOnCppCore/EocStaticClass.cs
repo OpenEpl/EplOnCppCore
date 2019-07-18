@@ -1,17 +1,16 @@
 ﻿using QIQI.EProjectFile;
 using QuickGraph;
-using System;
 using System.Collections.Generic;
 using System.Linq;
 
 namespace QIQI.EplOnCpp.Core
 {
-    public class EocStaticClass: EocClass
+    public class EocStaticClass : EocClass
     {
-
         public EocStaticClass(ProjectConverter p, ClassInfo rawInfo) : base(p, rawInfo)
         {
         }
+
         public void Define(CodeWriter writer)
         {
             writer.Write("#pragma once");
@@ -26,16 +25,30 @@ namespace QIQI.EplOnCpp.Core
             }
         }
 
-        public void AnalyzeDependencies(AdjacencyGraph<string, IEdge<string>> graph)
+        public override void AnalyzeDependencies(AdjacencyGraph<string, IEdge<string>> graph)
         {
             foreach (var x in RawInfo.Variables)
             {
-                var varRefId = $"{CppName}::{P.GetUserDefinedName_SimpleCppName(x.Id)}";
+                var varRefId = $"{RefId}::{P.GetUserDefinedName_SimpleCppName(x.Id)}";
                 P.AnalyzeDependencies(graph, varRefId, P.GetCppTypeName(x));
             }
             foreach (var x in Method)
             {
                 x.AnalyzeDependencies(graph);
+            }
+        }
+
+        public override void RemoveUnusedCode(HashSet<string> dependencies)
+        {
+            RawInfo.Variables = RawInfo.Variables.Where(x => dependencies.Contains($"{RefId}::{P.GetUserDefinedName_SimpleCppName(x.Id)}")).ToArray();
+            for (int i = Method.Count - 1; i >= 0; i--)
+            {
+                if (!dependencies.Contains(Method[i].RefId))
+                    Method.RemoveAt(i);
+            }
+            foreach (var item in Method)
+            {
+                item.RemoveUnusedCode(dependencies);
             }
         }
 

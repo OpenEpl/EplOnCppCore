@@ -1,10 +1,15 @@
-﻿using System;
+﻿using Newtonsoft.Json;
+using System;
 using System.Collections.Generic;
+using YamlDotNet.Serialization;
 
 namespace QIQI.EplOnCpp.Core
 {
     public class EocConstantInfo
     {
+        [JsonIgnore]
+        [YamlIgnore]
+        public string RefId => CppName ?? Getter;
         public string CppName { get; set; }
         public string Getter { get; set; }
         public CppTypeName DataType { get; set; } = ProjectConverter.CppTypeName_Int;

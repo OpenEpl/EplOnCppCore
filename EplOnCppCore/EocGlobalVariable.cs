@@ -9,6 +9,7 @@ namespace QIQI.EplOnCpp.Core
 {
     public class EocGlobalVariable
     {
+        public string RefId => CppName;
         public ProjectConverter P { get; }
         public string Name { get; }
         public string CppName { get; }
@@ -24,8 +25,8 @@ namespace QIQI.EplOnCpp.Core
 
         public void AnalyzeDependencies(AdjacencyGraph<string, IEdge<string>> graph)
         {
-            graph.AddVertex(CppName);
-            P.AnalyzeDependencies(graph, CppName, P.GetCppTypeName(RawInfo));
+            graph.AddVertex(RefId);
+            P.AnalyzeDependencies(graph, RefId, P.GetCppTypeName(RawInfo));
         }
 
         private void DefineItem(CodeWriter writer)

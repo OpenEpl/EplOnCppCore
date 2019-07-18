@@ -100,12 +100,12 @@ namespace QIQI.EplOnCpp.Core
         public int EocHelperLibId { get; }
         public int DataTypeId_IntPtr { get; }
         public EocProjectType ProjectType { get; }
-        public EocConstant[] EocConstants { get; }
-        public EocStruct[] EocStructs { get; }
-        public EocGlobalVariable[] EocGlobalVariables { get; }
-        public EocDll[] EocDllDeclares { get; }
-        public EocObjectClass[] EocObjectClasses { get; }
-        public EocStaticClass[] EocStaticClasses { get; }
+        public EocConstant[] EocConstants { get; set; }
+        public EocStruct[] EocStructs { get; set; }
+        public EocGlobalVariable[] EocGlobalVariables { get; set; }
+        public EocDll[] EocDllDeclares { get; set; }
+        public EocObjectClass[] EocObjectClasses { get; set; }
+        public EocStaticClass[] EocStaticClasses { get; set; }
         public IdToNameMap IdToNameMap { get; }
         public Dictionary<int, ClassInfo> ClassIdMap { get; }
         public Dictionary<int, MethodInfo> MethodIdMap { get; }
@@ -213,6 +213,7 @@ namespace QIQI.EplOnCpp.Core
             {
                 throw new ArgumentNullException(nameof(dest));
             }
+            Directory.CreateDirectory(dest);
 
             foreach (var eocObjectClass in EocObjectClasses)
             {
@@ -226,6 +227,7 @@ namespace QIQI.EplOnCpp.Core
                 eocStaticClass.Optimize();
             }
 
+            //分析依赖图
             Array.ForEach(EocConstants, x => x.AnalyzeDependencies(DependencyGraph));
             Array.ForEach(EocStructs, x => x.AnalyzeDependencies(DependencyGraph));
             Array.ForEach(EocGlobalVariables, x => x.AnalyzeDependencies(DependencyGraph));
@@ -245,8 +247,18 @@ namespace QIQI.EplOnCpp.Core
                 DependencyGraph.AddVerticesAndEdge(new Edge<string>("[Root]", "e::user::cmd::_启动子程序"));
             }
 
+            //生成依赖列表
             this.Dependencies = new HashSet<string>();
             GraphUtils.AnalyzeDependencies(DependencyGraph, "[Root]", this.Dependencies);
+
+            //删除未使用代码
+            EocConstants = EocConstants.Where(x => Dependencies.Contains(x.RefId)).ToArray();
+            EocStructs = EocStructs.Where(x => Dependencies.Contains(x.RefId)).ToArray();
+            EocGlobalVariables = EocGlobalVariables.Where(x => Dependencies.Contains(x.RefId)).ToArray();
+            EocDllDeclares = EocDllDeclares.Where(x => Dependencies.Contains(x.RefId)).ToArray();
+            EocObjectClasses = EocObjectClasses.Where(x => Dependencies.Contains(x.RefId)).ToArray();
+            Array.ForEach(EocObjectClasses, x => x.RemoveUnusedCode(Dependencies));
+            Array.ForEach(EocStaticClasses, x => x.RemoveUnusedCode(Dependencies));
 
             //依赖信息
             File.WriteAllText(Path.Combine(dest, "Dependencies.txt"), string.Join("\r\n", this.Dependencies), Encoding.UTF8);
@@ -466,7 +478,7 @@ namespace QIQI.EplOnCpp.Core
         private static void MakeVSCodeSettings(StreamWriter writer)
         {
             writer.WriteLine("{");
-            writer.WriteLine("    \"C_Cpp.default.configurationProvider\": \"vector - of - bool.cmake - tools\",");
+            writer.WriteLine("    \"C_Cpp.default.configurationProvider\": \"vector-of-bool.cmake-tools\",");
             writer.WriteLine("    \"[cpp]\": {");
             writer.WriteLine("        \"files.encoding\": \"gb18030\"");
             writer.WriteLine("    },");

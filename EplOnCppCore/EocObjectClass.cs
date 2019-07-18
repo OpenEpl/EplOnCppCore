@@ -33,21 +33,29 @@ namespace QIQI.EplOnCpp.Core
             }
         }
 
-        public void AnalyzeDependencies(AdjacencyGraph<string,IEdge<string>> graph)
+        public override void AnalyzeDependencies(AdjacencyGraph<string,IEdge<string>> graph)
         {
-            graph.AddVertex(CppName);
+            graph.AddVertex(RefId);
             if (BaseClassCppName != null)
-                graph.AddVerticesAndEdge(new Edge<string>(CppName, BaseClassCppName));
+                graph.AddVerticesAndEdge(new Edge<string>(RefId, BaseClassCppName));
             foreach (var x in RawInfo.Variables)
             {
-                var varRefId = $"{CppName}|{P.GetUserDefinedName_SimpleCppName(x.Id)}";
-                graph.AddVerticesAndEdge(new Edge<string>(CppName, varRefId));
+                var varRefId = $"{RefId}|{P.GetUserDefinedName_SimpleCppName(x.Id)}";
+                graph.AddVerticesAndEdge(new Edge<string>(RefId, varRefId));
                 P.AnalyzeDependencies(graph, varRefId, P.GetCppTypeName(x));
             }
             foreach (var x in Method)
             {
-                graph.AddVerticesAndEdge(new Edge<string>(CppName, x.RefId));
+                graph.AddVerticesAndEdge(new Edge<string>(RefId, x.RefId));
                 x.AnalyzeDependencies(graph);
+            }
+        }
+
+        public override void RemoveUnusedCode(HashSet<string> dependencies)
+        {
+            foreach (var item in Method)
+            {
+                item.RemoveUnusedCode(dependencies);
             }
         }
 

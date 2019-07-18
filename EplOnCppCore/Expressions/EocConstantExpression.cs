@@ -56,9 +56,9 @@ namespace QIQI.EplOnCpp.Core.Expressions
         public override void AnalyzeDependencies(AdjacencyGraph<string, IEdge<string>> graph)
         {
             base.AnalyzeDependencies(graph);
-            if (EocConstantInfo.CppName != null)
+            if (EocConstantInfo?.RefId != null)
             {
-                graph.AddVerticesAndEdge(new Edge<string>(C.RefId, EocConstantInfo.CppName));
+                graph.AddVerticesAndEdge(new Edge<string>(C.RefId, EocConstantInfo.RefId));
             }
         }
     }

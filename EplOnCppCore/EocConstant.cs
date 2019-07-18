@@ -17,16 +17,16 @@ namespace QIQI.EplOnCpp.Core
             Name = name ?? throw new ArgumentNullException(nameof(name));
             Info = info;
         }
-
+        public string RefId => Info?.RefId;
         public string Name { get; }
         public EocConstantInfo Info { get; }
 
         public void AnalyzeDependencies(AdjacencyGraph<string, IEdge<string>> graph)
         {
-            if(Info?.CppName != null)
+            if(RefId != null)
             {
-                graph.AddVertex(Info.CppName);
-                P.AnalyzeDependencies(graph, Info.CppName, Info.DataType);
+                graph.AddVertex(RefId);
+                P.AnalyzeDependencies(graph, RefId, Info.DataType);
             }
         }
 

@@ -10,6 +10,7 @@ namespace QIQI.EplOnCpp.Core
     public class EocDll
     {
         public ProjectConverter P { get; }
+        public string RefId => Info?.CppName;
 
         public EocDll(ProjectConverter p, string name, EocCmdInfo info, string libraryName, string entryPoint)
         {

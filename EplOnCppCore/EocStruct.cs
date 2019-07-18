@@ -12,7 +12,7 @@ namespace QIQI.EplOnCpp.Core
     {
 
         public ProjectConverter P { get; }
-
+        public string RefId => CppName;
         public StructInfo RawInfo { get; }
         public string Name { get;  }
         public string CppName { get; }
@@ -30,11 +30,11 @@ namespace QIQI.EplOnCpp.Core
         }
         public void AnalyzeDependencies(AdjacencyGraph<string, IEdge<string>> graph)
         {
-            graph.AddVertex(CppName);
+            graph.AddVertex(RefId);
             foreach (var x in RawInfo.Member)
             {
-                var varRefId = $"{CppName}|{P.GetUserDefinedName_SimpleCppName(x.Id)}";
-                graph.AddVerticesAndEdge(new Edge<string>(CppName, varRefId));
+                var varRefId = $"{RefId}|{P.GetUserDefinedName_SimpleCppName(x.Id)}";
+                graph.AddVerticesAndEdge(new Edge<string>(RefId, varRefId));
                 P.AnalyzeDependencies(graph, varRefId, P.GetCppTypeName(x));
             }
         }
