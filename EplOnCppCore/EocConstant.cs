@@ -15,7 +15,7 @@ namespace QIQI.EplOnCpp.Core
         {
             P = p ?? throw new ArgumentNullException(nameof(p));
             Name = name ?? throw new ArgumentNullException(nameof(name));
-            Info = info ?? throw new ArgumentNullException(nameof(info));
+            Info = info;
         }
 
         public string Name { get; }
@@ -23,7 +23,7 @@ namespace QIQI.EplOnCpp.Core
 
         public void AnalyzeDependencies(AdjacencyGraph<string, IEdge<string>> graph)
         {
-            if(Info.CppName != null)
+            if(Info?.CppName != null)
             {
                 graph.AddVertex(Info.CppName);
                 P.AnalyzeDependencies(graph, Info.CppName, Info.DataType);
@@ -32,7 +32,7 @@ namespace QIQI.EplOnCpp.Core
 
         private void DefineItem(CodeWriter writer)
         {
-            if (Info.Value == null)
+            if (Info?.Value == null)
             {
                 return;
             }

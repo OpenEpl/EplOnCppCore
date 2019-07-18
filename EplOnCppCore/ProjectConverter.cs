@@ -128,6 +128,7 @@ namespace QIQI.EplOnCpp.Core
         public string GlobalNamespace { get; }
         public EProjectFile.EProjectFile Source { get; }
         public ILoggerWithContext Logger { get; }
+        public HashSet<string> Dependencies { get; set; }
 
         public enum EocProjectType
         {
@@ -231,41 +232,27 @@ namespace QIQI.EplOnCpp.Core
             Array.ForEach(EocDllDeclares, x => x.AnalyzeDependencies(DependencyGraph));
             Array.ForEach(EocObjectClasses, x => x.AnalyzeDependencies(DependencyGraph));
             Array.ForEach(EocStaticClasses, x => x.AnalyzeDependencies(DependencyGraph));
+            if (Source.InitEcSectionInfo != null)
+            {
+                DependencyGraph.AddVerticesAndEdgeRange(Source.InitEcSectionInfo.InitMethod.Select(x => new Edge<string>("[Root]", GetCppMethodName(x))));
+            }
+            if (Source.Code.MainMethod != 0)
+            {
+                DependencyGraph.AddVerticesAndEdge(new Edge<string>("[Root]", GetCppMethodName(Source.Code.MainMethod)));
+            }
+            else
+            {
+                DependencyGraph.AddVerticesAndEdge(new Edge<string>("[Root]", "e::user::cmd::_启动子程序"));
+            }
+
+            this.Dependencies = new HashSet<string>();
+            GraphUtils.AnalyzeDependencies(DependencyGraph, "[Root]", this.Dependencies);
+
+            //依赖信息
+            File.WriteAllText(Path.Combine(dest, "Dependencies.txt"), string.Join("\r\n", this.Dependencies), Encoding.UTF8);
+            File.WriteAllBytes(Path.Combine(dest, "DependencyGraph.gv"), Encoding.UTF8.GetBytes(GraphUtils.WriteGraphvizScript(DependencyGraph, "DependencyGraph")));
 
             string fileName;
-
-            //依赖图
-            {
-                fileName = Path.Combine(dest, "GraphScript.gv");
-                var dependencyGraphScript = new StringBuilder();
-                dependencyGraphScript.AppendLine("digraph DependencyGraph{");
-                foreach (var vertex in DependencyGraph.Vertices)
-                {
-                    bool first = true;
-                    foreach (var edge in DependencyGraph.OutEdges(vertex))
-                    {
-                        if (first)
-                        {
-                            first = false;
-                            dependencyGraphScript.Append("\"")
-                                .Append(vertex)
-                                .Append("\"")
-                                .Append("->{");
-                        }
-                        dependencyGraphScript.Append("\"")
-                            .Append(edge.Target)
-                            .Append("\"")
-                            .Append(" ");
-                    }
-                    if (!first)
-                    {
-                        dependencyGraphScript.Append("}")
-                            .AppendLine();
-                    }
-                }
-                dependencyGraphScript.AppendLine("}");
-                File.WriteAllBytes(fileName, Encoding.UTF8.GetBytes(dependencyGraphScript.ToString()));
-            }
 
             //常量
             fileName = GetFileNameByNamespace(dest, ConstantNamespace, "h");
@@ -276,29 +263,7 @@ namespace QIQI.EplOnCpp.Core
             fileName = GetFileNameByNamespace(dest, TypeNamespace, "h");
             using (var writer = new CodeWriter(fileName))
             {
-                writer.Write("#pragma once");
-                writer.NewLine();
-                writer.Write("#include <e/system/basic_type.h>");
-                ReferenceEocLibs(writer);
-                using (writer.NewNamespace(TypeNamespace))
-                {
-                    using (writer.NewNamespace("eoc_internal"))
-                    {
-                        EocStruct.DefineRawName(this, writer, EocStructs);
-                        EocObjectClass.DefineRawName(this, writer, EocObjectClasses);
-                    }
-                    EocStruct.DefineName(this, writer, EocStructs);
-                    EocObjectClass.DefineName(this, writer, EocObjectClasses);
-                    using (writer.NewNamespace("eoc_internal"))
-                    {
-                        EocStruct.DefineRawStructInfo(this, writer, EocStructs);
-                        EocObjectClass.DefineRawObjectClass(this, writer, EocObjectClasses);
-                    }
-                }
-                using (writer.NewNamespace("e::system"))
-                {
-                    EocStruct.DefineStructMarshaler(this, writer, EocStructs);
-                }
+                DefineAllTypes(writer);
             }
 
             //实现 对象类
@@ -339,163 +304,202 @@ namespace QIQI.EplOnCpp.Core
             //预编译头
             fileName = GetFileNameByNamespace(dest, "stdafx", "h");
             using (var writer = new CodeWriter(fileName))
-            {
-                writer.Write("#pragma once");
-                writer.NewLine();
-                writer.Write("#include <e/system/func.h>");
-                writer.NewLine();
-                writer.Write("#include \"e/user/type.h\"");
-                writer.NewLine();
-                writer.Write("#include \"e/user/constant.h\"");
-                writer.NewLine();
-                writer.Write("#include \"e/user/dll.h\"");
-                writer.NewLine();
-                writer.Write("#include \"e/user/global.h\"");
-                foreach (var item in EocStaticClasses)
-                {
-                    fileName = item.CppName.Replace("::", "/") + ".h";
-                    writer.NewLine();
-                    writer.Write($"#include \"{fileName}\"");
-                }
-            }
+                MakeStandardHeader(writer);
 
             //程序入口
-            fileName = GetFileNameByNamespace(dest, "main", "cpp");
+            fileName = GetFileNameByNamespace(dest, "entry", "cpp");
             using (var writer = new CodeWriter(fileName))
-            {
-                writer.Write("#include \"stdafx.h\"");
-                writer.NewLine();
-                writer.Write("#include <Windows.h>");
-                writer.NewLine();
-                writer.Write("int init()");
-                using (writer.NewBlock())
-                {
-                    if (Source.InitEcSectionInfo != null)
-                    {
-                        for (int i = 0; i < Source.InitEcSectionInfo.InitMethod.Length; i++)
-                        {
-                            writer.NewLine();
-                            writer.Write(GetCppMethodName(Source.InitEcSectionInfo.InitMethod[i]));
-                            writer.Write("();");
-                            writer.AddComment("为{" + Source.InitEcSectionInfo.EcName[i] + "}做初始化");
-                        }
-                    }
-                    if (Source.Code.MainMethod != 0)
-                    {
-                        writer.NewLine();
-                        writer.Write("return ");
-                        writer.Write(GetCppMethodName(Source.Code.MainMethod));
-                        writer.Write("();");
-                    }
-                    else
-                    {
-                        writer.NewLine();
-                        writer.Write("return e::user::cmd::_启动子程序();");
-                    }
-                }
-                switch (ProjectType)
-                {
-                    case EocProjectType.Windows:
-                        writer.NewLine();
-                        writer.Write("int WINAPI WinMain(HINSTANCE hInstance,HINSTANCE hPrevInstance,PSTR szCmdLine, int iCmdShow)");
-                        using (writer.NewBlock())
-                        {
-                            writer.NewLine();
-                            writer.Write("return init();");
-                        }
-                        break;
-
-                    case EocProjectType.Console:
-                        writer.NewLine();
-                        writer.Write("int main()");
-                        using (writer.NewBlock())
-                        {
-                            writer.NewLine();
-                            writer.Write("return init();");
-                        }
-                        break;
-
-                    default:
-                        throw new Exception("未知项目类型");
-                }
-            }
+                MakeProgramEntry(writer);
 
             //CMake项目配置文件
             fileName = Path.Combine(dest, "CMakeLists.txt");
             using (var writer = new StreamWriter(File.Create(fileName), Encoding.Default))
-            {
-                //请求CMake
-                writer.WriteLine("cmake_minimum_required(VERSION 3.8)");
-                writer.WriteLine();
-                //引用EocBuildHelper
-                writer.WriteLine("if(NOT DEFINED EOC_HOME)");
-                writer.WriteLine("set(EOC_HOME $ENV{EOC_HOME})");
-                writer.WriteLine("endif()");
-                writer.WriteLine("include(${EOC_HOME}/EocBuildHelper.cmake)");
-                writer.WriteLine();
-                //建立项目
-                writer.WriteLine("project(main)");
-                switch (ProjectType)
-                {
-                    case EocProjectType.Windows:
-                        writer.WriteLine("add_executable(main WIN32)");
-                        break;
-
-                    case EocProjectType.Console:
-                        writer.WriteLine("add_executable(main)");
-                        break;
-
-                    default:
-                        throw new Exception("未知项目类型");
-                }
-                writer.WriteLine();
-                //添加源代码
-                writer.WriteLine("aux_source_directory(. DIR_SRCS_ENTRY)");
-                writer.WriteLine("aux_source_directory(e/user DIR_SRCS_ROOT)");
-                writer.WriteLine("aux_source_directory(e/user/cmd DIR_SRCS_CMD)");
-                writer.WriteLine("aux_source_directory(e/user/type DIR_SRCS_TYPE)");
-                writer.WriteLine("target_sources(main PRIVATE ${DIR_SRCS_ENTRY})");
-                writer.WriteLine("target_sources(main PRIVATE ${DIR_SRCS_ROOT})");
-                writer.WriteLine("target_sources(main PRIVATE ${DIR_SRCS_CMD})");
-                writer.WriteLine("target_sources(main PRIVATE ${DIR_SRCS_TYPE})");
-                writer.WriteLine();
-                //启用C++17
-                writer.WriteLine("set_property(TARGET main PROPERTY CXX_STANDARD 17)");
-                writer.WriteLine("set_property(TARGET main PROPERTY CXX_STANDARD_REQUIRED ON)");
-                writer.WriteLine();
-                //系统库
-                writer.WriteLine("include(${EOC_LIBS_DIRS}/system/config.cmake)");
-                writer.WriteLine("target_include_directories(main PRIVATE ${EocSystem_INCLUDE_DIRS})");
-                writer.WriteLine("target_link_libraries(main ${EocSystem_LIBRARIES})");
-                writer.WriteLine();
-                //支持库
-                for (int i = 0; i < Source.Code.Libraries.Length; i++)
-                {
-                    LibraryRefInfo item = Source.Code.Libraries[i];
-                    string libCMakeName = EocLibs[i]?.CMakeName;
-                    if (string.IsNullOrEmpty(libCMakeName))
-                        continue;
-                    writer.WriteLine($"include(${{EOC_LIBS_DIRS}}/{item.FileName}/config.cmake)");
-                    writer.WriteLine($"target_include_directories(main PRIVATE ${{{libCMakeName}_INCLUDE_DIRS}})");
-                    writer.WriteLine($"target_link_libraries(main ${{{libCMakeName}_LIBRARIES}})");
-                    writer.WriteLine();
-                }
-            }
+                MakeCMakeLists(writer);
 
             //VSCode配置文件
             fileName = Path.Combine(dest, ".vscode", "settings.json");
             Directory.CreateDirectory(Path.GetDirectoryName(fileName));
             using (var writer = new StreamWriter(File.Create(fileName), Encoding.Default))
+                MakeVSCodeSettings(writer);
+        }
+
+        private void MakeStandardHeader(CodeWriter writer)
+        {
+            writer.Write("#pragma once");
+            writer.NewLine();
+            writer.Write("#include <e/system/func.h>");
+            writer.NewLine();
+            writer.Write("#include \"e/user/type.h\"");
+            writer.NewLine();
+            writer.Write("#include \"e/user/constant.h\"");
+            writer.NewLine();
+            writer.Write("#include \"e/user/dll.h\"");
+            writer.NewLine();
+            writer.Write("#include \"e/user/global.h\"");
+            foreach (var item in EocStaticClasses)
             {
-                writer.WriteLine("{");
-                writer.WriteLine("    \"C_Cpp.default.configurationProvider\": \"vector - of - bool.cmake - tools\",");
-                writer.WriteLine("    \"[cpp]\": {");
-                writer.WriteLine("        \"files.encoding\": \"gb18030\"");
-                writer.WriteLine("    },");
-                writer.WriteLine("    \"files.exclude\": {");
-                writer.WriteLine("        \"build\": true");
-                writer.WriteLine("    }");
-                writer.WriteLine("}");
+                var includeName = item.CppName.Replace("::", "/") + ".h";
+                writer.NewLine();
+                writer.Write($"#include \"{includeName}\"");
+            }
+        }
+
+        private void MakeProgramEntry(CodeWriter writer)
+        {
+            writer.Write("#include \"stdafx.h\"");
+            writer.NewLine();
+            writer.Write("#include <Windows.h>");
+            writer.NewLine();
+            writer.Write("int init()");
+            using (writer.NewBlock())
+            {
+                if (Source.InitEcSectionInfo != null)
+                {
+                    for (int i = 0; i < Source.InitEcSectionInfo.InitMethod.Length; i++)
+                    {
+                        writer.NewLine();
+                        writer.Write(GetCppMethodName(Source.InitEcSectionInfo.InitMethod[i]));
+                        writer.Write("();");
+                        writer.AddComment("为{" + Source.InitEcSectionInfo.EcName[i] + "}做初始化");
+                    }
+                }
+                if (Source.Code.MainMethod != 0)
+                {
+                    writer.NewLine();
+                    writer.Write("return ");
+                    writer.Write(GetCppMethodName(Source.Code.MainMethod));
+                    writer.Write("();");
+                }
+                else
+                {
+                    writer.NewLine();
+                    writer.Write("return e::user::cmd::_启动子程序();");
+                }
+            }
+            switch (ProjectType)
+            {
+                case EocProjectType.Windows:
+                    writer.NewLine();
+                    writer.Write("int WINAPI WinMain(HINSTANCE hInstance,HINSTANCE hPrevInstance,PSTR szCmdLine, int iCmdShow)");
+                    using (writer.NewBlock())
+                    {
+                        writer.NewLine();
+                        writer.Write("return init();");
+                    }
+                    break;
+
+                case EocProjectType.Console:
+                    writer.NewLine();
+                    writer.Write("int main()");
+                    using (writer.NewBlock())
+                    {
+                        writer.NewLine();
+                        writer.Write("return init();");
+                    }
+                    break;
+
+                default:
+                    throw new Exception("未知项目类型");
+            }
+        }
+
+        private void MakeCMakeLists(StreamWriter writer)
+        {
+            //请求CMake
+            writer.WriteLine("cmake_minimum_required(VERSION 3.8)");
+            writer.WriteLine();
+            //引用EocBuildHelper
+            writer.WriteLine("if(NOT DEFINED EOC_HOME)");
+            writer.WriteLine("set(EOC_HOME $ENV{EOC_HOME})");
+            writer.WriteLine("endif()");
+            writer.WriteLine("include(${EOC_HOME}/EocBuildHelper.cmake)");
+            writer.WriteLine();
+            //建立项目
+            writer.WriteLine("project(main)");
+            switch (ProjectType)
+            {
+                case EocProjectType.Windows:
+                    writer.WriteLine("add_executable(main WIN32)");
+                    break;
+
+                case EocProjectType.Console:
+                    writer.WriteLine("add_executable(main)");
+                    break;
+
+                default:
+                    throw new Exception("未知项目类型");
+            }
+            writer.WriteLine();
+            //添加源代码
+            writer.WriteLine("aux_source_directory(. DIR_SRCS_ENTRY)");
+            writer.WriteLine("aux_source_directory(e/user DIR_SRCS_ROOT)");
+            writer.WriteLine("aux_source_directory(e/user/cmd DIR_SRCS_CMD)");
+            writer.WriteLine("aux_source_directory(e/user/type DIR_SRCS_TYPE)");
+            writer.WriteLine("target_sources(main PRIVATE ${DIR_SRCS_ENTRY})");
+            writer.WriteLine("target_sources(main PRIVATE ${DIR_SRCS_ROOT})");
+            writer.WriteLine("target_sources(main PRIVATE ${DIR_SRCS_CMD})");
+            writer.WriteLine("target_sources(main PRIVATE ${DIR_SRCS_TYPE})");
+            writer.WriteLine();
+            //启用C++17
+            writer.WriteLine("set_property(TARGET main PROPERTY CXX_STANDARD 17)");
+            writer.WriteLine("set_property(TARGET main PROPERTY CXX_STANDARD_REQUIRED ON)");
+            writer.WriteLine();
+            //系统库
+            writer.WriteLine("include(${EOC_LIBS_DIRS}/system/config.cmake)");
+            writer.WriteLine("target_include_directories(main PRIVATE ${EocSystem_INCLUDE_DIRS})");
+            writer.WriteLine("target_link_libraries(main ${EocSystem_LIBRARIES})");
+            writer.WriteLine();
+            //支持库
+            for (int i = 0; i < Source.Code.Libraries.Length; i++)
+            {
+                LibraryRefInfo item = Source.Code.Libraries[i];
+                string libCMakeName = EocLibs[i]?.CMakeName;
+                if (string.IsNullOrEmpty(libCMakeName))
+                    continue;
+                writer.WriteLine($"include(${{EOC_LIBS_DIRS}}/{item.FileName}/config.cmake)");
+                writer.WriteLine($"target_include_directories(main PRIVATE ${{{libCMakeName}_INCLUDE_DIRS}})");
+                writer.WriteLine($"target_link_libraries(main ${{{libCMakeName}_LIBRARIES}})");
+                writer.WriteLine();
+            }
+        }
+
+        private static void MakeVSCodeSettings(StreamWriter writer)
+        {
+            writer.WriteLine("{");
+            writer.WriteLine("    \"C_Cpp.default.configurationProvider\": \"vector - of - bool.cmake - tools\",");
+            writer.WriteLine("    \"[cpp]\": {");
+            writer.WriteLine("        \"files.encoding\": \"gb18030\"");
+            writer.WriteLine("    },");
+            writer.WriteLine("    \"files.exclude\": {");
+            writer.WriteLine("        \"build\": true");
+            writer.WriteLine("    }");
+            writer.WriteLine("}");
+        }
+
+        private void DefineAllTypes(CodeWriter writer)
+        {
+            writer.Write("#pragma once");
+            writer.NewLine();
+            writer.Write("#include <e/system/basic_type.h>");
+            ReferenceEocLibs(writer);
+            using (writer.NewNamespace(TypeNamespace))
+            {
+                using (writer.NewNamespace("eoc_internal"))
+                {
+                    EocStruct.DefineRawName(this, writer, EocStructs);
+                    EocObjectClass.DefineRawName(this, writer, EocObjectClasses);
+                }
+                EocStruct.DefineName(this, writer, EocStructs);
+                EocObjectClass.DefineName(this, writer, EocObjectClasses);
+                using (writer.NewNamespace("eoc_internal"))
+                {
+                    EocStruct.DefineRawStructInfo(this, writer, EocStructs);
+                    EocObjectClass.DefineRawObjectClass(this, writer, EocObjectClasses);
+                }
+            }
+            using (writer.NewNamespace("e::system"))
+            {
+                EocStruct.DefineStructMarshaler(this, writer, EocStructs);
             }
         }
 
@@ -803,6 +807,9 @@ namespace QIQI.EplOnCpp.Core
                     getter = cppName;
                     cppName = null;
                     break;
+
+                case null:
+                    return null;
 
                 default:
                     throw new Exception();
