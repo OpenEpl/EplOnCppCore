@@ -1,4 +1,5 @@
 ﻿using QIQI.EProjectFile.Expressions;
+using QuickGraph;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -119,6 +120,12 @@ namespace QIQI.EplOnCpp.Core.Expressions
 
         public override void ProcessSubExpression(Func<EocExpression, EocExpression> processor, bool deep = true)
         {
+            if(Target != null)
+            {
+                if (deep)
+                    Target.ProcessSubExpression(processor);
+                Target = processor(Target);
+            }
             for (int i = 0; i < ParamList.Count; i++)
             {
                 if(ParamList[i] == null)
@@ -126,6 +133,20 @@ namespace QIQI.EplOnCpp.Core.Expressions
                 if(deep)
                     ParamList[i].ProcessSubExpression(processor);
                 ParamList[i] = processor(ParamList[i]);
+            }
+        }
+
+        public override void AnalyzeDependencies(AdjacencyGraph<string, IEdge<string>> graph)
+        {
+            base.AnalyzeDependencies(graph);
+            if(CmdInfo.CppName != null)
+            {
+                var refId = CmdInfo.CppName;
+                if (Target != null)
+                {
+                    refId = Target.GetResultType().ToString() + "|" + refId;
+                }
+                graph.AddVerticesAndEdge(new Edge<string>(C.RefId, refId));
             }
         }
     }

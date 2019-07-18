@@ -1,5 +1,6 @@
 ﻿using QIQI.EProjectFile;
 using QIQI.EProjectFile.Expressions;
+using QuickGraph;
 using System;
 
 namespace QIQI.EplOnCpp.Core.Expressions
@@ -41,21 +42,7 @@ namespace QIQI.EplOnCpp.Core.Expressions
 
         public override CppTypeName GetResultType()
         {
-            switch (VariableInfo)
-            {
-                case MethodParameterInfo v:
-                    return P.GetCppTypeName(v.DataType, v.ArrayParameter);
-
-                case LocalVariableInfo v:
-                    return P.GetCppTypeName(v.DataType, v.UBound);
-
-                case ClassVariableInfo v:
-                    return P.GetCppTypeName(v.DataType, v.UBound);
-
-                case GlobalVariableInfo v:
-                    return P.GetCppTypeName(v.DataType, v.UBound);
-            }
-            throw new Exception("未知变量访问：" + P.IdToNameMap.GetUserDefinedName(VariableInfo.Id));
+            return P.GetCppTypeName(VariableInfo);
         }
 
         public override void WriteTo(CodeWriter writer)
@@ -76,15 +63,13 @@ namespace QIQI.EplOnCpp.Core.Expressions
                     break;
 
                 case ClassVariableInfo v:
-                    if (EplSystemId.GetType(C.ClassItem.Id) == EplSystemId.Type_Class)
+                    if (C.IsClassMember)
                     {
                         writer.Write("this->");
                     }
                     else
                     {
-                        writer.Write(P.CmdNamespace);
-                        writer.Write("::");
-                        writer.Write(P.GetUserDefinedName_SimpleCppName(C.ClassItem.Id));
+                        writer.Write(C.ClassItem.CppName);
                         writer.Write("::");
                     }
                     writer.Write(name);
@@ -99,6 +84,42 @@ namespace QIQI.EplOnCpp.Core.Expressions
                 default:
                     throw new Exception("未知变量访问：" + P.IdToNameMap.GetUserDefinedName(VariableInfo.Id));
             }
+        }
+
+        public override void AnalyzeDependencies(AdjacencyGraph<string, IEdge<string>> graph)
+        {
+            base.AnalyzeDependencies(graph);
+            string varRefId;
+            var name = P.GetUserDefinedName_SimpleCppName(VariableInfo.Id);
+            switch (VariableInfo)
+            {
+                case MethodParameterInfo _:
+                    varRefId = $"{C.RefId}|{name}";
+                    break;
+
+                case LocalVariableInfo _:
+                    varRefId = $"{C.RefId}|{name}";
+                    break;
+
+                case ClassVariableInfo _:
+                    if (C.IsClassMember)
+                    {
+                        varRefId = $"{C.ClassItem.CppName}|{name}";
+                    }
+                    else
+                    {
+                        varRefId = $"{C.ClassItem.CppName}::{name}";
+                    }
+                    break;
+
+                case GlobalVariableInfo _:
+                    varRefId = $"{P.GlobalNamespace}::{name}";
+                    break;
+
+                default:
+                    throw new Exception("未知变量访问：" + P.IdToNameMap.GetUserDefinedName(VariableInfo.Id));
+            }
+            graph.AddVerticesAndEdge(new Edge<string>(C.RefId, varRefId));
         }
     }
 }

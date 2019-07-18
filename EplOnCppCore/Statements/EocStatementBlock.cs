@@ -1,4 +1,5 @@
-﻿using QIQI.EProjectFile.Statements;
+﻿using QIQI.EplOnCpp.Core.Expressions;
+using QIQI.EProjectFile.Statements;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -6,7 +7,7 @@ using System.Linq;
 
 namespace QIQI.EplOnCpp.Core.Statements
 {
-    public class EocStatementBlock : IList<EocStatement>
+    public class EocStatementBlock : EocStatement, IList<EocStatement>
     {
         public static EocStatementBlock Translate(CodeConverter C, StatementBlock block)
         {
@@ -14,31 +15,33 @@ namespace QIQI.EplOnCpp.Core.Statements
             return new EocStatementBlock(C, block?.Select(x => EocStatement.Translate(C, x)).ToList());
         }
 
-        public CodeConverter C { get; }
-        public ProjectConverter P => C.P;
-        public ILoggerWithContext Logger => P.Logger;
 
         private List<EocStatement> statements;
 
-        public EocStatementBlock(CodeConverter c)
+        public EocStatementBlock(CodeConverter c) : base(c)
         {
-            C = c ?? throw new ArgumentNullException(nameof(c));
             statements = new List<EocStatement>();
         }
 
-        public EocStatementBlock(CodeConverter c, IEnumerable<EocStatement> block)
+        public EocStatementBlock(CodeConverter c, IEnumerable<EocStatement> block) : base(c)
         {
-            C = c ?? throw new ArgumentNullException(nameof(c));
             statements = block?.ToList();
         }
 
-        public EocStatementBlock Optimize()
+        public override EocStatement Optimize()
         {
             for (int i = 0; i < statements.Count; i++)
             {
                 statements[i] = statements[i]?.Optimize();
             }
             return this;
+        }
+        public override void ProcessSubExpression(Func<EocExpression, EocExpression> processor, bool deep = true)
+        {
+            for (int i = 0; i < statements.Count; i++)
+            {
+                statements[i].ProcessSubExpression(processor, deep);
+            }
         }
 
         public EocStatement this[int index] { get => ((IList<EocStatement>)statements)[index]; set => ((IList<EocStatement>)statements)[index] = value; }
@@ -97,7 +100,7 @@ namespace QIQI.EplOnCpp.Core.Statements
             return ((IList<EocStatement>)statements).GetEnumerator();
         }
 
-        public void WriteTo(CodeWriter writer)
+        public override void WriteTo(CodeWriter writer)
         {
             foreach (var item in this)
             {

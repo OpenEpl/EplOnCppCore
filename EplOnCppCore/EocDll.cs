@@ -1,4 +1,5 @@
 ﻿using QIQI.EProjectFile;
+using QuickGraph;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -14,6 +15,7 @@ namespace QIQI.EplOnCpp.Core
         {
             P = p ?? throw new ArgumentNullException(nameof(p));
             Name = name ?? throw new ArgumentNullException(nameof(name));
+
             Info = info ?? throw new ArgumentNullException(nameof(info));
             LibraryName = libraryName ?? throw new ArgumentNullException(nameof(libraryName));
             EntryPoint = entryPoint ?? Name;
@@ -23,6 +25,11 @@ namespace QIQI.EplOnCpp.Core
         public EocCmdInfo Info { get; }
         public string LibraryName { get; }
         public string EntryPoint { get; }
+
+        public void AnalyzeDependencies(AdjacencyGraph<string, IEdge<string>> graph)
+        {
+            P.AnalyzeDependencies(graph, Info);
+        }
 
         private void DefineItem(CodeWriter writer)
         {

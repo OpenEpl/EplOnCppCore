@@ -1,6 +1,7 @@
 ﻿using QIQI.EplOnCpp.Core.Expressions;
 using QIQI.EProjectFile.Statements;
 using QIQI.EProjectFile;
+using System;
 
 namespace QIQI.EplOnCpp.Core.Statements
 {
@@ -37,6 +38,15 @@ namespace QIQI.EplOnCpp.Core.Statements
         {
             Expr = Expr?.Optimize();
             return this;
+        }
+
+        public override void ProcessSubExpression(Func<EocExpression, EocExpression> processor, bool deep = true)
+        {
+            if (Expr == null)
+                return;
+            if (deep)
+                Expr.ProcessSubExpression(processor, true);
+            Expr = processor(Expr);
         }
 
         public override void WriteTo(CodeWriter writer)

@@ -1,4 +1,5 @@
 ﻿using QIQI.EProjectFile.Expressions;
+using QuickGraph;
 using System;
 
 namespace QIQI.EplOnCpp.Core.Expressions
@@ -50,6 +51,15 @@ namespace QIQI.EplOnCpp.Core.Expressions
         {
             value = EocConstantInfo.Value;
             return EocConstantInfo.Value != null;
+        }
+
+        public override void AnalyzeDependencies(AdjacencyGraph<string, IEdge<string>> graph)
+        {
+            base.AnalyzeDependencies(graph);
+            if (EocConstantInfo.CppName != null)
+            {
+                graph.AddVerticesAndEdge(new Edge<string>(C.RefId, EocConstantInfo.CppName));
+            }
         }
     }
 }

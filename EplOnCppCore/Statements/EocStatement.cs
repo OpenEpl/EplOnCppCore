@@ -1,4 +1,6 @@
-﻿using QIQI.EProjectFile.Statements;
+﻿using QIQI.EplOnCpp.Core.Expressions;
+using QIQI.EProjectFile.Statements;
+using QuickGraph;
 using System;
 
 namespace QIQI.EplOnCpp.Core.Statements
@@ -16,6 +18,25 @@ namespace QIQI.EplOnCpp.Core.Statements
 
         public abstract void WriteTo(CodeWriter writer);
         public virtual EocStatement Optimize() => this;
+
+        public void ProcessSubExpression(Action<EocExpression> processor, bool deep = true)
+        {
+            ProcessSubExpression(x =>
+            {
+                processor(x);
+                return x;
+            }, deep);
+        }
+
+        public virtual void ProcessSubExpression(Func<EocExpression, EocExpression> processor, bool deep = true)
+        {
+
+        }
+
+        public virtual void AnalyzeDependencies(AdjacencyGraph<string, IEdge<string>> graph)
+        {
+            ProcessSubExpression(x => x.AnalyzeDependencies(graph), false);
+        }
 
         public static EocStatement Translate(CodeConverter converter, Statement item)
         {

@@ -1,5 +1,6 @@
 ﻿using QIQI.EplOnCpp.Core.Expressions;
 using QIQI.EProjectFile.Statements;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -26,11 +27,28 @@ namespace QIQI.EplOnCpp.Core.Statements
             Case.ForEach(x =>
             {
                 x.Condition = x.Condition?.Optimize();
-                x.Block = x.Block?.Optimize();
+                x.Block = x.Block?.Optimize() as EocStatementBlock;
             });
-            DefaultBlock = DefaultBlock?.Optimize();
+            DefaultBlock = DefaultBlock?.Optimize() as EocStatementBlock;
             return this;
         }
+
+        public override void ProcessSubExpression(Func<EocExpression, EocExpression> processor, bool deep = true)
+        {
+            Case.ForEach(x =>
+            {
+                if(x.Condition != null)
+                {
+                    if (deep)
+                        x.Condition.ProcessSubExpression(processor, deep);
+                    x.Condition = processor(x.Condition);
+                }
+                x.Block?.ProcessSubExpression(processor, deep);
+            });
+
+            DefaultBlock?.ProcessSubExpression(processor, deep);
+        }
+
 
         public override void WriteTo(CodeWriter writer)
         {

@@ -1,4 +1,5 @@
 ﻿using QIQI.EProjectFile.Expressions;
+using QuickGraph;
 using System;
 
 namespace QIQI.EplOnCpp.Core.Expressions
@@ -38,6 +39,12 @@ namespace QIQI.EplOnCpp.Core.Expressions
             value = null;
             return false;
         }
+
+        public virtual void AnalyzeDependencies(AdjacencyGraph<string, IEdge<string>> graph)
+        {
+            ProcessSubExpression(x => x.AnalyzeDependencies(graph), false);
+        }
+
         public virtual bool TryGetConstValueWithCast(CppTypeName cast, out object value)
         {
             if (!TryGetConstValue(out value))

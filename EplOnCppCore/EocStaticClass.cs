@@ -1,25 +1,16 @@
 ﻿using QIQI.EProjectFile;
+using QuickGraph;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 
 namespace QIQI.EplOnCpp.Core
 {
-    public class EocStaticClass
+    public class EocStaticClass: EocClass
     {
-        public ProjectConverter P { get; }
-        public ClassInfo RawInfo { get; }
-        public string Name { get; }
-        public string CppName { get; }
-        public List<CodeConverter> Method { get; }
 
-        public EocStaticClass(ProjectConverter p, ClassInfo rawInfo)
+        public EocStaticClass(ProjectConverter p, ClassInfo rawInfo) : base(p, rawInfo)
         {
-            P = p ?? throw new ArgumentNullException(nameof(p));
-            RawInfo = rawInfo ?? throw new ArgumentNullException(nameof(rawInfo));
-            Name = P.GetUserDefinedName_SimpleCppName(RawInfo.Id);
-            CppName = $"{P.CmdNamespace}::{Name}";
-            Method = RawInfo.Method.Select(x => P.MethodIdMap[x]).Select(x => new CodeConverter(P, RawInfo, x)).ToList();
         }
         public void Define(CodeWriter writer)
         {
@@ -34,19 +25,17 @@ namespace QIQI.EplOnCpp.Core
                 }
             }
         }
-        public void ParseCode()
-        {
-            foreach (var item in Method)
-            {
-                item.ParseCode();
-            }
-        }
 
-        public void Optimize()
+        public void AnalyzeDependencies(AdjacencyGraph<string, IEdge<string>> graph)
         {
-            for (int i = 0; i < Method.Count; i++)
+            foreach (var x in RawInfo.Variables)
             {
-                Method[i] = Method[i].Optimize();
+                var varRefId = $"{CppName}::{P.GetUserDefinedName_SimpleCppName(x.Id)}";
+                P.AnalyzeDependencies(graph, varRefId, P.GetCppTypeName(x));
+            }
+            foreach (var x in Method)
+            {
+                x.AnalyzeDependencies(graph);
             }
         }
 

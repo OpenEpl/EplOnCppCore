@@ -1,4 +1,5 @@
 ﻿using QIQI.EProjectFile;
+using QuickGraph;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -9,13 +10,22 @@ namespace QIQI.EplOnCpp.Core
     public class EocGlobalVariable
     {
         public ProjectConverter P { get; }
-
+        public string Name { get; }
+        public string CppName { get; }
         public GlobalVariableInfo RawInfo { get; }
 
         public EocGlobalVariable(ProjectConverter p, GlobalVariableInfo rawInfo)
         {
             P = p ?? throw new ArgumentNullException(nameof(p));
             RawInfo = rawInfo ?? throw new ArgumentNullException(nameof(rawInfo));
+            Name = P.GetUserDefinedName_SimpleCppName(RawInfo.Id);
+            CppName = $"{P.GlobalNamespace}::{Name}";
+        }
+
+        public void AnalyzeDependencies(AdjacencyGraph<string, IEdge<string>> graph)
+        {
+            graph.AddVertex(CppName);
+            P.AnalyzeDependencies(graph, CppName, P.GetCppTypeName(RawInfo));
         }
 
         private void DefineItem(CodeWriter writer)

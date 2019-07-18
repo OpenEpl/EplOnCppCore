@@ -1,4 +1,5 @@
 ﻿using QIQI.EProjectFile;
+using QuickGraph;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -19,6 +20,15 @@ namespace QIQI.EplOnCpp.Core
 
         public string Name { get; }
         public EocConstantInfo Info { get; }
+
+        public void AnalyzeDependencies(AdjacencyGraph<string, IEdge<string>> graph)
+        {
+            if(Info.CppName != null)
+            {
+                graph.AddVertex(Info.CppName);
+                P.AnalyzeDependencies(graph, Info.CppName, Info.DataType);
+            }
+        }
 
         private void DefineItem(CodeWriter writer)
         {

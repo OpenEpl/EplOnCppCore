@@ -1,4 +1,5 @@
 ﻿using QIQI.EProjectFile.Expressions;
+using QuickGraph;
 using System.Linq;
 
 namespace QIQI.EplOnCpp.Core.Expressions
@@ -31,6 +32,12 @@ namespace QIQI.EplOnCpp.Core.Expressions
             writer.Write(string.Join(", ", CmdInfo.Parameters.Select(x => P.GetParameterTypeString(x))));
             writer.Write(")");
             writer.Write(">::ptr<&" + CmdInfo.CppName + ">");
+        }
+
+        public override void AnalyzeDependencies(AdjacencyGraph<string, IEdge<string>> graph)
+        {
+            base.AnalyzeDependencies(graph);
+            graph.AddVerticesAndEdge(new Edge<string>(C.RefId, CmdInfo.CppName));
         }
     }
 }

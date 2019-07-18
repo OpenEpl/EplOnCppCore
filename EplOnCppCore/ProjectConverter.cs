@@ -1,6 +1,7 @@
 ﻿using QIQI.EProjectFile;
 using QIQI.EProjectFile.Expressions;
 using QIQI.EProjectFile.LibInfo;
+using QuickGraph;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -117,6 +118,8 @@ namespace QIQI.EplOnCpp.Core
         //MethodInfo.Class 似乎并不可靠
         public Dictionary<int, ClassInfo> MethodIdToClassMap { get; }
 
+        public AdjacencyGraph<string, IEdge<string>> DependencyGraph { get; } = new AdjacencyGraph<string, IEdge<string>>();
+
         public string ProjectNamespace { get; }
         public string TypeNamespace { get; }
         public string CmdNamespace { get; }
@@ -222,7 +225,47 @@ namespace QIQI.EplOnCpp.Core
                 eocStaticClass.Optimize();
             }
 
+            Array.ForEach(EocConstants, x => x.AnalyzeDependencies(DependencyGraph));
+            Array.ForEach(EocStructs, x => x.AnalyzeDependencies(DependencyGraph));
+            Array.ForEach(EocGlobalVariables, x => x.AnalyzeDependencies(DependencyGraph));
+            Array.ForEach(EocDllDeclares, x => x.AnalyzeDependencies(DependencyGraph));
+            Array.ForEach(EocObjectClasses, x => x.AnalyzeDependencies(DependencyGraph));
+            Array.ForEach(EocStaticClasses, x => x.AnalyzeDependencies(DependencyGraph));
+
             string fileName;
+
+            //依赖图
+            {
+                fileName = Path.Combine(dest, "GraphScript.gv");
+                var dependencyGraphScript = new StringBuilder();
+                dependencyGraphScript.AppendLine("digraph DependencyGraph{");
+                foreach (var vertex in DependencyGraph.Vertices)
+                {
+                    bool first = true;
+                    foreach (var edge in DependencyGraph.OutEdges(vertex))
+                    {
+                        if (first)
+                        {
+                            first = false;
+                            dependencyGraphScript.Append("\"")
+                                .Append(vertex)
+                                .Append("\"")
+                                .Append("->{");
+                        }
+                        dependencyGraphScript.Append("\"")
+                            .Append(edge.Target)
+                            .Append("\"")
+                            .Append(" ");
+                    }
+                    if (!first)
+                    {
+                        dependencyGraphScript.Append("}")
+                            .AppendLine();
+                    }
+                }
+                dependencyGraphScript.AppendLine("}");
+                File.WriteAllBytes(fileName, Encoding.UTF8.GetBytes(dependencyGraphScript.ToString()));
+            }
 
             //常量
             fileName = GetFileNameByNamespace(dest, ConstantNamespace, "h");
@@ -446,7 +489,9 @@ namespace QIQI.EplOnCpp.Core
             {
                 writer.WriteLine("{");
                 writer.WriteLine("    \"C_Cpp.default.configurationProvider\": \"vector - of - bool.cmake - tools\",");
-                writer.WriteLine("    \"files.encoding\": \"gb18030\",");
+                writer.WriteLine("    \"[cpp]\": {");
+                writer.WriteLine("        \"files.encoding\": \"gb18030\"");
+                writer.WriteLine("    },");
                 writer.WriteLine("    \"files.exclude\": {");
                 writer.WriteLine("        \"build\": true");
                 writer.WriteLine("    }");
@@ -463,6 +508,33 @@ namespace QIQI.EplOnCpp.Core
                 LibraryRefInfo item = Source.Code.Libraries[i];
                 writer.NewLine();
                 writer.Write($"#include <e/lib/{item.FileName}/public.h>");
+            }
+        }
+
+        public void AnalyzeDependencies(AdjacencyGraph<string, IEdge<string>> graph, string a, CppTypeName b)
+        {
+            if (b == null)
+                return;
+            graph.AddVerticesAndEdge(new Edge<string>(a, b.Name));
+            if (b.TypeParam == null)
+                return;
+            foreach (var item in b.TypeParam)
+            {
+                AnalyzeDependencies(graph, a, item);
+            }
+        }
+        public void AnalyzeDependencies(AdjacencyGraph<string, IEdge<string>> graph, EocCmdInfo info, string refId = null)
+        {
+            if (info == null)
+                return;
+            refId = refId ?? info.CppName;
+            graph.AddVertex(refId);
+            AnalyzeDependencies(graph, refId, info.ReturnDataType);
+            foreach (var x in info.Parameters)
+            {
+                var varRefId = $"{refId}|{x.Name}";
+                graph.AddVerticesAndEdge(new Edge<string>(refId, varRefId));
+                AnalyzeDependencies(graph, varRefId, x.DataType);
             }
         }
 
@@ -876,6 +948,13 @@ namespace QIQI.EplOnCpp.Core
         #endregion MethodInfoHelper
 
         #region TypeInfoHelper
+
+        public CppTypeName GetCppTypeName(AbstractVariableInfo x)
+        {
+            if (x is MethodParameterInfo parameterInfo)
+                return GetCppTypeName(parameterInfo.DataType, parameterInfo.ArrayParameter);
+            return GetCppTypeName(x.DataType, x.UBound);
+        }
 
         public CppTypeName GetCppTypeName(int id, int[] uBound)
         {

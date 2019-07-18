@@ -28,6 +28,17 @@ namespace QIQI.EplOnCpp.Core
             RawCppName = $"{P.TypeNamespace}::eoc_internal::{RawName}";
             CppName = P.GetCppTypeName(rawInfo.Id).ToString();
         }
+        public void AnalyzeDependencies(AdjacencyGraph<string, IEdge<string>> graph)
+        {
+            graph.AddVertex(CppName);
+            foreach (var x in RawInfo.Member)
+            {
+                var varRefId = $"{CppName}|{P.GetUserDefinedName_SimpleCppName(x.Id)}";
+                graph.AddVerticesAndEdge(new Edge<string>(CppName, varRefId));
+                P.AnalyzeDependencies(graph, varRefId, P.GetCppTypeName(x));
+            }
+        }
+
         private void DefineRawName(CodeWriter writer)
         {
             writer.NewLine();

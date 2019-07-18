@@ -7,29 +7,19 @@ using System.Linq;
 
 namespace QIQI.EplOnCpp.Core
 {
-    public class EocObjectClass
+    public class EocObjectClass : EocClass
     {
-        public ProjectConverter P { get; }
-
-        public ClassInfo RawInfo { get; }
-        public string Name { get; }
-        public string CppName { get; }
         public string RawName { get; }
         public string RawCppName { get; }
         public string BaseClassName { get; }
         public string BaseClassCppName { get; }
         public string BaseClassRawName { get; }
         public string BaseClassRawCppName { get; }
-        public List<CodeConverter> Method { get; }
 
-        public EocObjectClass(ProjectConverter p, ClassInfo rawInfo)
+        public EocObjectClass(ProjectConverter p, ClassInfo rawInfo) : base(p, rawInfo)
         {
-            P = p ?? throw new ArgumentNullException(nameof(p));
-            RawInfo = rawInfo ?? throw new ArgumentNullException(nameof(rawInfo));
-            Name = P.GetUserDefinedName_SimpleCppName(RawInfo.Id);
             RawName = "raw_" + Name;
             RawCppName = $"{P.TypeNamespace}::eoc_internal::{RawName}";
-            CppName = P.GetCppTypeName(rawInfo.Id).ToString();
             if (rawInfo.BaseClass == 0 || rawInfo.BaseClass == -1)
             {
                 BaseClassName = BaseClassCppName = BaseClassRawName = BaseClassRawCppName = null;
@@ -41,22 +31,23 @@ namespace QIQI.EplOnCpp.Core
                 BaseClassRawName = $"raw_{BaseClassName}";
                 BaseClassRawCppName = $"{P.TypeNamespace}::eoc_internal::{BaseClassRawName}";
             }
-            Method = RawInfo.Method.Select(x => P.MethodIdMap[x]).Select(x => new CodeConverter(P, RawInfo, x)).ToList();
         }
 
-        public void ParseCode()
+        public void AnalyzeDependencies(AdjacencyGraph<string,IEdge<string>> graph)
         {
-            foreach (var item in Method)
+            graph.AddVertex(CppName);
+            if (BaseClassCppName != null)
+                graph.AddVerticesAndEdge(new Edge<string>(CppName, BaseClassCppName));
+            foreach (var x in RawInfo.Variables)
             {
-                item.ParseCode();
+                var varRefId = $"{CppName}|{P.GetUserDefinedName_SimpleCppName(x.Id)}";
+                graph.AddVerticesAndEdge(new Edge<string>(CppName, varRefId));
+                P.AnalyzeDependencies(graph, varRefId, P.GetCppTypeName(x));
             }
-        }
-
-        public void Optimize()
-        {
-            for (int i = 0; i < Method.Count; i++)
+            foreach (var x in Method)
             {
-                Method[i] = Method[i].Optimize();
+                graph.AddVerticesAndEdge(new Edge<string>(CppName, x.RefId));
+                x.AnalyzeDependencies(graph);
             }
         }
 

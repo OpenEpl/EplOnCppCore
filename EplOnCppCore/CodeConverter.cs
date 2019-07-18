@@ -1,6 +1,7 @@
 ﻿using QIQI.EplOnCpp.Core.Expressions;
 using QIQI.EplOnCpp.Core.Statements;
 using QIQI.EProjectFile;
+using QuickGraph;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -11,9 +12,10 @@ namespace QIQI.EplOnCpp.Core
     {
         public ProjectConverter P { get; }
         public string Name { get; }
+        public string RefId { get; }
         public EocCmdInfo EocCmdInfo { get; }
         public bool IsClassMember { get; }
-        public ClassInfo ClassItem { get; }
+        public EocClass ClassItem { get; }
         public MethodInfo MethodItem { get; }
         public ILoggerWithContext Logger => P.Logger;
         public MethodParameterInfo[] Parameters { get; }
@@ -21,24 +23,27 @@ namespace QIQI.EplOnCpp.Core
         public Dictionary<int, LocalVariableInfo> LocalIdMap { get; }
         public EocStatementBlock StatementBlock { get; set; }
 
-        public CodeConverter(ProjectConverter projectConverter, ClassInfo classItem, MethodInfo methodItem)
+        public CodeConverter(ProjectConverter projectConverter, EocClass classItem, MethodInfo methodItem)
         {
             this.P = projectConverter;
             this.Name = P.GetUserDefinedName_SimpleCppName(methodItem.Id);
             this.EocCmdInfo = P.GetEocCmdInfo(methodItem);
-            this.IsClassMember = EplSystemId.GetType(classItem.Id) == EplSystemId.Type_Class;
+            this.IsClassMember = classItem is EocObjectClass;
             this.ClassItem = classItem;
             this.MethodItem = methodItem;
             this.Parameters = methodItem.Parameters;
             this.ParamIdMap = methodItem.Parameters.ToDictionary(x => x.Id);
             this.LocalIdMap = methodItem.Variables.ToDictionary(x => x.Id);
-
+            if(IsClassMember)
+                this.RefId = $"{ClassItem.CppName}|{EocCmdInfo.CppName}";
+            else
+                this.RefId = EocCmdInfo.CppName;
         }
 
         public void ParseCode()
         {
             using (new LoggerContextHelper(Logger)
-                .Set("class", P.IdToNameMap.GetUserDefinedName(ClassItem.Id))
+                .Set("class", P.IdToNameMap.GetUserDefinedName(ClassItem.RawInfo.Id))
                 .Set("method", P.IdToNameMap.GetUserDefinedName(MethodItem.Id)))
             {
                 this.StatementBlock = EocStatementBlock.Translate(this, CodeDataParser.ParseStatementBlock(MethodItem.CodeData.ExpressionData, MethodItem.CodeData.Encoding));
@@ -54,7 +59,7 @@ namespace QIQI.EplOnCpp.Core
 
         public CodeConverter Optimize()
         {
-            StatementBlock = StatementBlock.Optimize();
+            StatementBlock = StatementBlock.Optimize() as EocStatementBlock;
             return this;
         }
 
@@ -91,6 +96,17 @@ namespace QIQI.EplOnCpp.Core
             }
         }
 
+        public void AnalyzeDependencies(AdjacencyGraph<string, IEdge<string>> graph)
+        {
+            P.AnalyzeDependencies(graph, EocCmdInfo, RefId);
+            foreach (var x in MethodItem.Variables)
+            {
+                var varRefId = $"{RefId}|{P.GetUserDefinedName_SimpleCppName(x.Id)}";
+                P.AnalyzeDependencies(graph, varRefId, P.GetCppTypeName(x));
+            }
+            StatementBlock.AnalyzeDependencies(graph);
+        }
+
         internal void DefineItem(CodeWriter writer)
         {
             var isVirtual = false;
@@ -109,11 +125,13 @@ namespace QIQI.EplOnCpp.Core
         internal void ImplementItem(CodeWriter writer)
         {
             using (new LoggerContextHelper(Logger)
-                .Set("class", P.IdToNameMap.GetUserDefinedName(ClassItem.Id))
+                .Set("class", P.IdToNameMap.GetUserDefinedName(ClassItem.RawInfo.Id))
                 .Set("method", P.IdToNameMap.GetUserDefinedName(MethodItem.Id)))
             {
-                var classRawName = "raw_" + P.GetUserDefinedName_SimpleCppName(ClassItem.Id);
-                P.WriteMethodHeader(writer, EocCmdInfo, Name, false, IsClassMember ? classRawName : null, false);
+                string classRawName = null;
+                if (ClassItem is EocObjectClass x)
+                    classRawName = x.RawName;
+                P.WriteMethodHeader(writer, EocCmdInfo, Name, false, classRawName, false);
                 using (writer.NewBlock())
                 {
                     P.DefineVariable(writer, null, MethodItem.Variables);
