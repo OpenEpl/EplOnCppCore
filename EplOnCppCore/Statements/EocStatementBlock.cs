@@ -1,4 +1,5 @@
 ﻿using QIQI.EplOnCpp.Core.Expressions;
+using QIQI.EProjectFile;
 using QIQI.EProjectFile.Statements;
 using System;
 using System.Collections;
@@ -12,9 +13,18 @@ namespace QIQI.EplOnCpp.Core.Statements
         public static EocStatementBlock Translate(CodeConverter C, StatementBlock block)
         {
             if (block == null) return null;
-            return new EocStatementBlock(C, block?.Select(x => EocStatement.Translate(C, x)).ToList());
+            return new EocStatementBlock(C, block?.Select(x =>
+            {
+                try
+                {
+                    return EocStatement.Translate(C, x);
+                }
+                catch (Exception exception)
+                {
+                    return new EocErrorStatement(C, exception, x.ToTextCode(C.P.IdToNameMap));
+                }
+            }));
         }
-
 
         private List<EocStatement> statements;
 
@@ -36,6 +46,7 @@ namespace QIQI.EplOnCpp.Core.Statements
             }
             return this;
         }
+
         public override void ProcessSubExpression(Func<EocExpression, EocExpression> processor, bool deep = true)
         {
             for (int i = 0; i < statements.Count; i++)

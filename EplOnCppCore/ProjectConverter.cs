@@ -69,18 +69,7 @@ namespace QIQI.EplOnCpp.Core
             { EplSystemId.DataType_String , CppTypeName_String }
         };
 
-        public static readonly EocCmdInfo ErrorEocCmdInfo = new EocCmdInfo()
-        {
-            ReturnDataType = CppTypeName_SkipCheck,
-            CppName = "EOC_ERROR_CMD",
-            Parameters = new List<EocParameterInfo>() {
-                new EocParameterInfo() {
-                    DataType = CppTypeName_SkipCheck,
-                    VarArgs = true,
-                    Optional = true
-                }
-            }
-        };
+        public static readonly CppTypeName EocErrorType = new CppTypeName(false, "EOC_ERROR_TYPE");
 
         /// <summary>
         /// 使用<code>new ProjectConverter(...).Generate(...)</code>替代
@@ -855,36 +844,24 @@ namespace QIQI.EplOnCpp.Core
                     return GetEocCmdInfo(id);
 
                 default:
-                    try
+                    if (Libs[libId] == null)
                     {
-                        if (Libs[libId] == null)
-                        {
-                            Logger.Error("缺少fne信息：{0}", this.Source.Code.Libraries[libId].Name);
-                            return ErrorEocCmdInfo;
-                        }
-                        if (Libs[libId].Cmd.Length < id)
-                        {
-                            Logger.Error("fne信息中缺少命令信息，请检查版本是否匹配【Lib：{0}，CmdId：{1}】", Libs[libId].Name, id);
-                            return ErrorEocCmdInfo;
-                        }
-                        var name = Libs[libId].Cmd[id].Name;
-                        if (EocLibs[libId] == null)
-                        {
-                            Logger.Error("{0} 库缺少Eoc识别信息，可能是EOC不支持该库或没有安装相应Eoc库", Libs[libId].Name);
-                            return ErrorEocCmdInfo;
-                        }
-                        if (!EocLibs[libId].Cmd.ContainsKey(name))
-                        {
-                            Logger.Error("{0} 命令缺少Eoc识别信息，可能是EOC不支持该命令或没有安装相应Eoc库", name);
-                            return ErrorEocCmdInfo;
-                        }
-                        return EocLibs[libId].Cmd[name];
+                        throw new Exception(string.Format("缺少fne信息：{0}", this.Source.Code.Libraries[libId].Name));
                     }
-                    catch (Exception ex)
+                    if (Libs[libId].Cmd.Length < id)
                     {
-                        Logger.Error("获取Eoc命令信息时出现未知错误【Lib：{0}，CmdId：{1}】：{2}", Libs[libId].Name, id, ex);
-                        return ErrorEocCmdInfo;
+                        throw new Exception(string.Format("fne信息中缺少命令信息，请检查版本是否匹配【Lib：{0}，CmdId：{1}】", Libs[libId].Name, id));
                     }
+                    var name = Libs[libId].Cmd[id].Name;
+                    if (EocLibs[libId] == null)
+                    {
+                        throw new Exception(string.Format("{0} 库缺少Eoc识别信息，可能是EOC不支持该库或没有安装相应Eoc库", Libs[libId].Name));
+                    }
+                    if (!EocLibs[libId].Cmd.ContainsKey(name))
+                    {
+                        throw new Exception(string.Format("{0} 命令缺少Eoc识别信息，可能是EOC不支持该命令或没有安装相应Eoc库", name));
+                    }
+                    return EocLibs[libId].Cmd[name];
             }
         }
 
@@ -997,7 +974,28 @@ namespace QIQI.EplOnCpp.Core
                 else
                 {
                     EplSystemId.DecomposeLibDataTypeId(id, out var libId, out var typeId);
+
+                    if (Libs[libId] == null)
+                    {
+                        Logger.Error("缺少fne信息：{0}", this.Source.Code.Libraries[libId].Name);
+                        return EocErrorType;
+                    }
+                    if (typeId >= Libs[libId].DataType.Length)
+                    {
+                        Logger.Error("fne信息中缺少类型信息，请检查版本是否匹配【Lib：{0}，TypeId：{1}】", Libs[libId].Name, typeId);
+                        return EocErrorType;
+                    }
                     var name = Libs[libId].DataType[typeId].Name;
+                    if (EocLibs[libId] == null)
+                    {
+                        Logger.Error("{0} 库缺少Eoc识别信息，可能是EOC不支持该库或没有安装相应Eoc库", Libs[libId].Name);
+                        return EocErrorType;
+                    }
+                    if (!EocLibs[libId].Type.ContainsKey(name))
+                    {
+                        Logger.Error("{0} 类型缺少Eoc识别信息，可能是EOC不支持该类型或没有安装相应Eoc库", name);
+                        return EocErrorType;
+                    }
                     result = EocLibs[libId].Type[name].CppName;
                 }
             }
