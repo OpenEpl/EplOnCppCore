@@ -248,6 +248,7 @@ namespace QIQI.EplOnCpp.Core
             EocObjectClasses = EocObjectClasses.Where(x => Dependencies.Contains(x.RefId)).ToArray();
             Array.ForEach(EocObjectClasses, x => x.RemoveUnusedCode(Dependencies));
             Array.ForEach(EocStaticClasses, x => x.RemoveUnusedCode(Dependencies));
+            EocStaticClasses = EocStaticClasses.Where(x => x.Method.Count != 0).ToArray();
 
             //依赖信息
             File.WriteAllText(Path.Combine(dest, "Dependencies.txt"), string.Join("\r\n", this.Dependencies), Encoding.UTF8);
