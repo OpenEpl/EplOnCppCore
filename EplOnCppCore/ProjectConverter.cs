@@ -977,23 +977,19 @@ namespace QIQI.EplOnCpp.Core
 
                     if (Libs[libId] == null)
                     {
-                        Logger.Error("缺少fne信息：{0}", this.Source.Code.Libraries[libId].Name);
                         return EocErrorType;
                     }
                     if (typeId >= Libs[libId].DataType.Length)
                     {
-                        Logger.Error("fne信息中缺少类型信息，请检查版本是否匹配【Lib：{0}，TypeId：{1}】", Libs[libId].Name, typeId);
                         return EocErrorType;
                     }
                     var name = Libs[libId].DataType[typeId].Name;
                     if (EocLibs[libId] == null)
                     {
-                        Logger.Error("{0} 库缺少Eoc识别信息，可能是EOC不支持该库或没有安装相应Eoc库", Libs[libId].Name);
                         return EocErrorType;
                     }
                     if (!EocLibs[libId].Type.ContainsKey(name))
                     {
-                        Logger.Error("{0} 类型缺少Eoc识别信息，可能是EOC不支持该类型或没有安装相应Eoc库", name);
                         return EocErrorType;
                     }
                     result = EocLibs[libId].Type[name].CppName;
