@@ -66,7 +66,8 @@ namespace QIQI.EplOnCpp.Core
             { EplSystemId.DataType_Long , CppTypeName_Long },
             { EplSystemId.DataType_Short , CppTypeName_Short },
             { EplSystemId.DataType_MethodPtr , CppTypeName_MethodPtr },
-            { EplSystemId.DataType_String , CppTypeName_String }
+            { EplSystemId.DataType_String , CppTypeName_String },
+            { EplSystemId.DataType_Any , CppTypeName_Any }
         };
 
         public static readonly CppTypeName EocErrorType = new CppTypeName(false, "EOC_ERROR_TYPE");
