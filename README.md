@@ -1,7 +1,8 @@
 ***Only Chinese document is available.***
 
 # QIQI.EplOnCpp.Core
-[![NuGet](https://img.shields.io/nuget/v/QIQI.EplOnCpp.Core.svg)](https://www.nuget.org/packages/QIQI.EplOnCpp.Core)   
+[![NuGet](https://img.shields.io/nuget/v/QIQI.EplOnCpp.Core.svg)](https://www.nuget.org/packages/QIQI.EplOnCpp.Core) [![FOSSA Status](https://app.fossa.io/api/projects/git%2Bgithub.com%2F1354092549%2FEplOnCppCore.svg?type=shield)](https://app.fossa.io/projects/git%2Bgithub.com%2F1354092549%2FEplOnCppCore?ref=badge_shield)
+  
 命名空间：`QIQI.EplOnCpp.Core`  
 
 # 介绍
@@ -26,3 +27,7 @@ Package Manager `Install-Package QIQI.EplOnCpp.Core`
 # 编译
 使用NuGet安装缺失包，然后一般编译即可  
 注意：**必须VS2017或更高版本，使用了最新语言特性** *（不过运行环境.NET Framework 4.0即可，支持XP）*  
+
+
+## License
+[![FOSSA Status](https://app.fossa.io/api/projects/git%2Bgithub.com%2F1354092549%2FEplOnCppCore.svg?type=large)](https://app.fossa.io/projects/git%2Bgithub.com%2F1354092549%2FEplOnCppCore?ref=badge_large)
