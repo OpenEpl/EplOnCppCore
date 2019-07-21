@@ -261,6 +261,9 @@ namespace QIQI.EplOnCpp.Core
             fileName = GetFileNameByNamespace(dest, ConstantNamespace, "h");
             using (var writer = new CodeWriter(fileName))
                 EocConstant.Define(this, writer, EocConstants);
+            fileName = GetFileNameByNamespace(dest, ConstantNamespace, "cpp");
+            using (var writer = new CodeWriter(fileName))
+                EocConstant.Implement(this, writer, EocConstants);
 
             //声明自定义数据类型（结构/对象类）
             fileName = GetFileNameByNamespace(dest, TypeNamespace, "h");

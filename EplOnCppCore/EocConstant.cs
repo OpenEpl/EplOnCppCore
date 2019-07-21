@@ -77,9 +77,39 @@ namespace QIQI.EplOnCpp.Core
                     break;
 
                 case byte[] v:
-                    throw new Exception();
+                    writer.NewLine();
+                    writer.Write($"e::system::bin {Name}();");
+                    break;
                 default:
                     throw new Exception();
+            }
+        }
+
+        private void ImplementItem(CodeWriter writer)
+        {
+            if (Info?.Value == null)
+            {
+                return;
+            }
+            switch (Info.Value)
+            {
+                case byte[] v:
+                    writer.NewLine();
+                    writer.Write($"e::system::bin {Name}()");
+                    using (writer.NewBlock())
+                    {
+                        writer.NewLine();
+                        writer.Write("return e::system::bin {");
+                        for (int i = 0; i < v.Length; i++)
+                        {
+                            if (i != 0)
+                                writer.Write(", ");
+                            writer.Write(v[i].ToString());
+                        }
+                        writer.Write("}");
+                        writer.Write(";");
+                    }
+                    break;
             }
         }
 
@@ -103,6 +133,20 @@ namespace QIQI.EplOnCpp.Core
                 foreach (var item in eocDlls)
                 {
                     item.DefineItem(writer);
+                }
+            }
+        }
+
+        public static void Implement(ProjectConverter P, CodeWriter writer, EocConstant[] eocDlls)
+        {
+            writer.Write("#pragma once");
+            writer.NewLine();
+            writer.Write("#include \"constant.h\"");
+            using (writer.NewNamespace(P.ConstantNamespace))
+            {
+                foreach (var item in eocDlls)
+                {
+                    item.ImplementItem(writer);
                 }
             }
         }
