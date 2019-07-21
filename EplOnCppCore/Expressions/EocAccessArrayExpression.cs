@@ -38,6 +38,9 @@ namespace QIQI.EplOnCpp.Core.Expressions
                 case CppTypeName any when any == ProjectConverter.CppTypeName_Any:
                     return arrayItemType;
 
+                case CppTypeName x when x == ProjectConverter.CppTypeName_Bin:
+                    return ProjectConverter.CppTypeName_Byte;
+
                 default:
                     throw new NotImplementedException();
             }
