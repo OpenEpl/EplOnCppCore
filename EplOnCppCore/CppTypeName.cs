@@ -222,11 +222,38 @@ namespace QIQI.EplOnCpp.Core
 
         public bool Equals(CppTypeName other)
         {
-            return other != null &&
-                   IsConst == other.IsConst &&
-                   Name == other.Name &&
-                   EqualityComparer<ReadOnlyCollection<CppTypeName>>.Default.Equals(TypeParam, other.TypeParam) &&
-                   EqualityComparer<ReadOnlyCollection<CppPtrType>>.Default.Equals(PtrInfos, other.PtrInfos);
+            if (other == null)
+                return false;
+
+            if (IsConst != other.IsConst)
+                return false;
+
+            if (Name != other.Name)
+                return false;
+
+            if (TypeParam == null || TypeParam.Count == 0)
+            {
+                if (other.TypeParam != null && other.TypeParam.Count != 0)
+                    return false;
+            }
+            else
+            {
+                if (!TypeParam.SequenceEqual(other.TypeParam))
+                    return false;
+            }
+
+            if (PtrInfos == null || PtrInfos.Count == 0)
+            {
+                if (other.PtrInfos != null && other.PtrInfos.Count != 0)
+                    return false;
+            }
+            else
+            {
+                if (!PtrInfos.SequenceEqual(other.PtrInfos))
+                    return false;
+            }
+
+            return true;
         }
 
         public override int GetHashCode()
@@ -234,8 +261,20 @@ namespace QIQI.EplOnCpp.Core
             var hashCode = -2115335014;
             hashCode = hashCode * -1521134295 + IsConst.GetHashCode();
             hashCode = hashCode * -1521134295 + EqualityComparer<string>.Default.GetHashCode(Name);
-            hashCode = hashCode * -1521134295 + EqualityComparer<ReadOnlyCollection<CppTypeName>>.Default.GetHashCode(TypeParam);
-            hashCode = hashCode * -1521134295 + EqualityComparer<ReadOnlyCollection<CppPtrType>>.Default.GetHashCode(PtrInfos);
+            if (TypeParam != null)
+            {
+                foreach (var item in TypeParam)
+                {
+                    hashCode = hashCode * -1521134295 + EqualityComparer<CppTypeName>.Default.GetHashCode(item);
+                }
+            }
+            if (PtrInfos != null)
+            {
+                foreach (var item in PtrInfos)
+                {
+                    hashCode = hashCode * -1521134295 + EqualityComparer<CppPtrType>.Default.GetHashCode(item);
+                }
+            }
             return hashCode;
         }
 
