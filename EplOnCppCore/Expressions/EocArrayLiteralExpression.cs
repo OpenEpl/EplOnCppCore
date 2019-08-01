@@ -79,5 +79,40 @@ namespace QIQI.EplOnCpp.Core.Expressions
                 Item[i] = processor(Item[i]);
             }
         }
+
+        public override bool TryGetConstValue(out object value)
+        {
+            return TryGetConstValueWithCast(GetResultType(), out value);
+        }
+
+        public override bool TryGetConstValueWithCast(CppTypeName cast, out object value)
+        {
+            var resultType = cast;
+            CppTypeName elemType;
+            if (cast == ProjectConverter.CppTypeName_Bin)
+            {
+                elemType = ProjectConverter.CppTypeName_Byte;
+            }
+            else if (cast.Name == "e::system::array")
+            {
+                elemType = resultType.TypeParam[0];
+            }
+            else
+            {
+                value = null;
+                return false;
+            }
+            var values = new object[Item.Count];
+            for (int i = 0; i < Item.Count; i++)
+            {
+                if (!Item[i].TryGetConstValueWithCast(elemType, out values[i]))
+                {
+                    value = null;
+                    return false;
+                }
+            }
+            value = values;
+            return true;
+        }
     }
 }

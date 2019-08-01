@@ -1180,18 +1180,22 @@ namespace QIQI.EplOnCpp.Core
             }
         }
 
+        public bool IsArithmeticType(CppTypeName dataType)
+        {
+            return IsIntNumberType(dataType) || IsFloatNumberType(dataType) || dataType == CppTypeName_IntPtr;
+        }
+
+        public bool IsArithmeticType(int dataType)
+        {
+            return IsIntNumberType(dataType) || IsFloatNumberType(dataType) || dataType == DataTypeId_IntPtr;
+        }
+
         public bool IsValueType(CppTypeName dataType)
         {
             if (dataType == CppTypeName_Bool
-                || dataType == CppTypeName_Byte
-                || dataType == CppTypeName_Short
-                || dataType == CppTypeName_Int
-                || dataType == CppTypeName_Long
-                || dataType == CppTypeName_Float
-                || dataType == CppTypeName_Double
                 || dataType == CppTypeName_DateTime
                 || dataType == CppTypeName_MethodPtr
-                || dataType == CppTypeName_IntPtr)
+                || IsArithmeticType(dataType))
             {
                 return true;
             }
@@ -1207,15 +1211,9 @@ namespace QIQI.EplOnCpp.Core
             switch (dataType)
             {
                 case EplSystemId.DataType_Bool:
-                case EplSystemId.DataType_Byte:
                 case EplSystemId.DataType_DateTime:
-                case EplSystemId.DataType_Double:
-                case EplSystemId.DataType_Float:
-                case EplSystemId.DataType_Int:
-                case EplSystemId.DataType_Long:
-                case EplSystemId.DataType_Short:
                 case EplSystemId.DataType_MethodPtr:
-                case var x when x == DataTypeId_IntPtr:
+                case var x when IsArithmeticType(x):
                     return true;
 
                 default:

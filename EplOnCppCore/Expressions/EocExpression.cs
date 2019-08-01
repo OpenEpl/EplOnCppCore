@@ -1,6 +1,7 @@
 ﻿using QIQI.EProjectFile.Expressions;
 using QuickGraph;
 using System;
+using System.Collections.Generic;
 
 namespace QIQI.EplOnCpp.Core.Expressions
 {
@@ -51,7 +52,23 @@ namespace QIQI.EplOnCpp.Core.Expressions
                 return false;
             var type = ProjectConverter.GetConstValueType(value);
             if (type == cast)
-                return true; //FIXME 类型自动转换
+                return true;
+            if (P.IsArithmeticType(type) && P.IsArithmeticType(cast)) 
+            {
+                var NumberConverter = new Dictionary<CppTypeName, Func<object, object>> {
+                    { ProjectConverter.CppTypeName_Byte, x => Convert.ToByte(x) },
+                    { ProjectConverter.CppTypeName_Short, x => Convert.ToInt16(x) },
+                    { ProjectConverter.CppTypeName_Int, x => Convert.ToInt32(x) },
+                    { ProjectConverter.CppTypeName_Long, x => Convert.ToInt64(x) },
+                    { ProjectConverter.CppTypeName_Float, x => Convert.ToSingle(x) },
+                    { ProjectConverter.CppTypeName_Double, x => Convert.ToDouble(x) },
+                };
+                if (NumberConverter.TryGetValue(cast, out var converter)) 
+                {
+                    value = converter(value);
+                    return true;
+                }
+            }
             return false;
         }
 
