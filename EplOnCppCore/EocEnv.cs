@@ -9,8 +9,8 @@ namespace QIQI.EplOnCpp.Core
     public class EocEnv
     {
         public static string Home { get; set; }
-        public static string LibPath => Path.Combine(Home, "lib");
-        public static bool IsValid => File.Exists(Path.Combine(Home, "lib", "system", "config.cmake"));
+        public static string LibPath => Home != null ? Path.Combine(Home, "lib") : null;
+        public static bool IsValid => Home != null && File.Exists(Path.Combine(Home, "lib", "system", "config.cmake"));
 
         static EocEnv()
         {
