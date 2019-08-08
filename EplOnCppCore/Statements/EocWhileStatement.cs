@@ -64,7 +64,6 @@ namespace QIQI.EplOnCpp.Core.Statements
                 return;
             }
             writer.NewLine();
-            writer.Write("// ");
             writer.Write("while (");
             Condition.WriteToWithCast(writer, ProjectConverter.CppTypeName_Bool);
             writer.Write(")");
