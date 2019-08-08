@@ -139,8 +139,6 @@ namespace QIQI.EplOnCpp.Core
 
         public static void Implement(ProjectConverter P, CodeWriter writer, EocConstant[] eocDlls)
         {
-            writer.Write("#pragma once");
-            writer.NewLine();
             writer.Write("#include \"constant.h\"");
             using (writer.NewNamespace(P.ConstantNamespace))
             {

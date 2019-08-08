@@ -65,8 +65,6 @@ namespace QIQI.EplOnCpp.Core
 
         public static void Implement(ProjectConverter P, CodeWriter writer, EocGlobalVariable[] collection)
         {
-            writer.Write("#pragma once");
-            writer.NewLine();
             writer.Write("#include \"global.h\"");
             using (writer.NewNamespace(P.GlobalNamespace))
             {
