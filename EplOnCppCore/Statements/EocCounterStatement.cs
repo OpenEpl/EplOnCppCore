@@ -78,13 +78,15 @@ namespace QIQI.EplOnCpp.Core.Statements
             var varForCount = $"{varPrefix}_count";
             var varForIndex = $"{varPrefix}_index";
             var typeName = $"decltype({varForCount})";
+            CppTypeName expectedType = null;
 
             writer.AddCommentLine(CommentOnStart);
 
             writer.NewLine();
             if (hasVar)
             {
-                typeName = Var.GetResultType().ToString();
+                expectedType = Var.GetResultType();
+                typeName = expectedType.ToString();
                 writer.Write(typeName);
                 writer.Write(" ");
             }
@@ -94,7 +96,7 @@ namespace QIQI.EplOnCpp.Core.Statements
             }
             writer.Write(varForCount);
             writer.Write(" = ");
-            Count.WriteTo(writer);
+            Count.WriteToWithCast(writer, expectedType);
             writer.Write(";");
 
             writer.NewLine();

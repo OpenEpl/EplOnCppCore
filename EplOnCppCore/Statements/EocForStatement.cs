@@ -100,11 +100,13 @@ namespace QIQI.EplOnCpp.Core.Statements
             var varForStep = $"{varPrefix}_step";
             var varForIsNegStep = $"{varPrefix}_isNegStep";
             var typeName = $"decltype({varForIndex})";
+            CppTypeName expectedType = null;
 
             writer.NewLine();
             if (hasVar)
             {
-                typeName = Var.GetResultType().ToString();
+                expectedType = Var.GetResultType();
+                typeName = expectedType.ToString();
                 writer.Write(typeName);
                 writer.Write(" ");
             }
@@ -114,7 +116,7 @@ namespace QIQI.EplOnCpp.Core.Statements
             }
             writer.Write(varForIndex);
             writer.Write(" = ");
-            Start.WriteTo(writer);
+            Start.WriteToWithCast(writer, expectedType);
             writer.Write(";");
 
             writer.NewLine();
@@ -122,7 +124,7 @@ namespace QIQI.EplOnCpp.Core.Statements
             writer.Write(" ");
             writer.Write(varForEnd);
             writer.Write(" = ");
-            End.WriteTo(writer);
+            End.WriteToWithCast(writer, expectedType);
             writer.Write(";");
 
             writer.NewLine();
@@ -130,7 +132,7 @@ namespace QIQI.EplOnCpp.Core.Statements
             writer.Write(" ");
             writer.Write(varForStep);
             writer.Write(" = ");
-            Step.WriteTo(writer);
+            Step.WriteToWithCast(writer, expectedType);
             writer.Write(";");
 
             writer.NewLine();
