@@ -748,8 +748,23 @@ namespace QIQI.EplOnCpp.Core
         {
             var dataTypeInfo = Libs[expr.LibraryId].DataType[expr.StructId];
             var memberInfo = dataTypeInfo.Member[expr.MemberId];
-            var eocConstantInfo = EocLibs[expr.LibraryId].Enum[dataTypeInfo.Name][memberInfo.Name];
-            return eocConstantInfo;
+            EocConstantInfo result;
+            try
+            {
+                result = EocLibs[expr.LibraryId].Enum[dataTypeInfo.Name][memberInfo.Name];
+            }
+            catch (Exception)
+            {
+                result = new EocConstantInfo()
+                {
+                    Value = memberInfo.Default
+                };
+                if (result.Value is long longValue)
+                    if ((int)longValue == longValue)
+                        result.Value = (int)longValue;
+                result.DataType = GetConstValueType(result.Value);
+            }
+            return result;
         }
 
         public EocConstantInfo GetEocConstantInfo(ConstantExpression expr)
@@ -766,8 +781,23 @@ namespace QIQI.EplOnCpp.Core
 
                 default:
                     var name = Libs[libraryId].Constant[id].Name;
-                    var eocConstantInfo = EocLibs[libraryId].Constant[name];
-                    return eocConstantInfo;
+                    EocConstantInfo result;
+                    try
+                    {
+                        result = EocLibs[libraryId].Constant[name];
+                    }
+                    catch (Exception)
+                    {
+                        result = new EocConstantInfo()
+                        {
+                            Value = Libs[libraryId].Constant[id].Value
+                        };
+                        if (result.Value is long longValue)
+                            if ((int)longValue == longValue)
+                                result.Value = (int)longValue;
+                        result.DataType = GetConstValueType(result.Value);
+                    }
+                    return result;
             }
         }
 
@@ -1012,6 +1042,14 @@ namespace QIQI.EplOnCpp.Core
             if (EplSystemId.IsLibDataType(dataType))
             {
                 EplSystemId.DecomposeLibDataTypeId(dataType, out var libId, out var typeId);
+                try
+                {
+                    if (Libs[libId].DataType[typeId].IsEnum)
+                        return EplSystemId.DataType_Int;
+                }
+                catch (Exception)
+                {
+                }
                 try
                 {
                     if (EocLibs[libId].Enum.ContainsKey(Libs[libId].DataType[typeId].Name))
