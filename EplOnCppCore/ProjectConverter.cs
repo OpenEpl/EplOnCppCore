@@ -1039,7 +1039,7 @@ namespace QIQI.EplOnCpp.Core
         {
             if (dataType == 0)
                 return EplSystemId.DataType_Int;
-            if (EplSystemId.IsLibDataType(dataType))
+            if (EplSystemId.IsLibDataType(dataType) && dataType != DataTypeId_IntPtr)
             {
                 EplSystemId.DecomposeLibDataTypeId(dataType, out var libId, out var typeId);
                 try
