@@ -11,13 +11,19 @@ namespace QIQI.EplOnCpp.Core.Expressions
     {
         public static EocCallExpression Translate(CodeConverter C, CallExpression expr)
         {
+            var P = C.P;
             if (expr == null) return null;
-            return new EocCallExpression(
+            var result = new EocCallExpression(
                 C,
-                C.P.GetEocCmdInfo(expr),
+                P.GetEocCmdInfo(expr),
                 EocExpression.Translate(C, expr.Target),
                 expr.ParamList?.Select(x => EocExpression.Translate(C, x)).ToList(),
-                expr.LibraryId >= 0 ? C.P.EocLibs[expr.LibraryId]?.SuperTemplateAssembly : null);
+                expr.LibraryId >= 0 ? P.EocLibs[expr.LibraryId]?.SuperTemplateAssembly : null);
+            if (expr.InvokeSpecial)
+            {
+                result.SpecialScope = "raw_" + P.GetUserDefinedName_SimpleCppName(P.MethodIdToClassMap[expr.MethodId].Id);
+            }
+            return result;
         }
 
         public EocCallExpression(CodeConverter c, EocCmdInfo cmdInfo, EocExpression target, List<EocExpression> paramList, Assembly superTemplateAssembly = null) : base(c)
@@ -29,10 +35,10 @@ namespace QIQI.EplOnCpp.Core.Expressions
         }
 
         public EocCmdInfo CmdInfo { get; }
+        public string SpecialScope { get; set; }
         public EocExpression Target { get; set; }
         public List<EocExpression> ParamList { get; set; }
         public Assembly SuperTemplateAssembly { get; }
-
         public override CppTypeName GetResultType()
         {
             if (CmdInfo.SuperTemplateForReturnDataType != null)
@@ -70,6 +76,11 @@ namespace QIQI.EplOnCpp.Core.Expressions
             {
                 Target.WriteTo(writer);
                 writer.Write("->");
+            }
+            else if (!string.IsNullOrEmpty(SpecialScope))
+            {
+                writer.Write(SpecialScope);
+                writer.Write("::");
             }
             writer.Write(CmdInfo.CppName);
 

@@ -117,12 +117,18 @@ namespace QIQI.EplOnCpp.Core
             var isVirtual = false;
             if (IsClassMember)
             {
-                writer.NewLine();
-                writer.Write(MethodItem.Public ? "public:" : "private:");
+                var accessModifier = MethodItem.Public ? "public" : "protected";
                 if (MethodItem.Name != "_初始化" && MethodItem.Name != "_销毁")
                 {
                     isVirtual = true;
                 }
+                else
+                {
+                    accessModifier = "private";
+                }
+                writer.NewLine();
+                writer.Write(accessModifier);
+                writer.Write(":");
             }
             P.DefineMethod(writer, EocCmdInfo, Name, isVirtual);
         }
