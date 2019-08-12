@@ -72,7 +72,7 @@ namespace QIQI.EplOnCpp.Core.Statements
             }
             writer.Write("while (");
             Condition.WriteToWithCast(writer, ProjectConverter.CppTypeName_Bool);
-            writer.Write(")");
+            writer.Write("); ");
             writer.AddComment(CommentOnEnd);
         }
     }
