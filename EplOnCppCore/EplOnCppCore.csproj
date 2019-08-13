@@ -28,7 +28,7 @@
 	  <PrivateAssets>all</PrivateAssets>
 	  <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
 	</PackageReference>
-	<PackageReference Include="QIQI.EProjectFile" Version="1.3.5" />
+	<PackageReference Include="QIQI.EProjectFile" Version="1.3.6" />
 	<PackageReference Include="QuickGraphCore" Version="1.0.0" />
 	<PackageReference Include="YamlDotNet" Version="6.1.2" />
   </ItemGroup>
