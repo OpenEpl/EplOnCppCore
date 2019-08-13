@@ -96,6 +96,7 @@ namespace QIQI.EplOnCpp.Core
         public EocDll[] EocDllDeclares { get; set; }
         public EocObjectClass[] EocObjectClasses { get; set; }
         public EocStaticClass[] EocStaticClasses { get; set; }
+        public EocDllExport[] EocDllExports { get; set; }
         public IdToNameMap IdToNameMap { get; }
         public Dictionary<int, ClassInfo> ClassIdMap { get; }
         public Dictionary<int, MethodInfo> MethodIdMap { get; }
@@ -123,7 +124,8 @@ namespace QIQI.EplOnCpp.Core
         public enum EocProjectType
         {
             Windows,
-            Console
+            Console,
+            Dll
         }
 
         public ProjectConverter(EProjectFile.EProjectFile source, EocProjectType projectType = EocProjectType.Console, string projectNamespace = "e::user", ILoggerWithContext logger = null)
@@ -195,6 +197,10 @@ namespace QIQI.EplOnCpp.Core
             this.EocDllDeclares = EocDll.Translate(this, Source.Code.DllDeclares);
             this.EocObjectClasses = EocObjectClass.Translate(this, Source.Code.Classes.Where(x => EplSystemId.GetType(x.Id) == EplSystemId.Type_Class));
             this.EocStaticClasses = EocStaticClass.Translate(this, Source.Code.Classes.Where(x => EplSystemId.GetType(x.Id) != EplSystemId.Type_Class));
+            if (ProjectType == EocProjectType.Dll)
+            {
+                this.EocDllExports = EocDllExport.Translate(this, Source.Code.Methods.Where(x => x.IsStatic && x.Public));
+            }
         }
 
         public void Generate(string dest)
@@ -224,6 +230,10 @@ namespace QIQI.EplOnCpp.Core
             Array.ForEach(EocDllDeclares, x => x.AnalyzeDependencies(DependencyGraph));
             Array.ForEach(EocObjectClasses, x => x.AnalyzeDependencies(DependencyGraph));
             Array.ForEach(EocStaticClasses, x => x.AnalyzeDependencies(DependencyGraph));
+            if (EocDllExports != null)
+            {
+                Array.ForEach(EocDllExports, x => x.AnalyzeDependencies(DependencyGraph));
+            }
             if (Source.InitEcSectionInfo != null)
             {
                 DependencyGraph.AddVerticesAndEdgeRange(Source.InitEcSectionInfo.InitMethod.Select(x => new Edge<string>("[Root]", GetCppMethodName(x))));
@@ -317,15 +327,28 @@ namespace QIQI.EplOnCpp.Core
             using (var writer = new CodeWriter(fileName))
                 MakeProgramEntry(writer);
 
+            //Dll导出
+            if (EocDllExports != null)
+            {
+                fileName = GetFileNameByNamespace(dest, "dll_export", "cpp");
+                using (var writer = new CodeWriter(fileName))
+                    EocDllExport.Implement(this, writer, EocDllExports);
+                fileName = GetFileNameByNamespace(dest, "dll_export", "def");
+                using (var writer = new StreamWriter(File.Create(fileName), Encoding.GetEncoding("gbk")))
+                {
+                    EocDllExport.MakeDef(this, writer, EocDllExports);
+                }
+            }
+
             //CMake项目配置文件
             fileName = Path.Combine(dest, "CMakeLists.txt");
-            using (var writer = new StreamWriter(File.Create(fileName), Encoding.Default))
+            using (var writer = new StreamWriter(File.Create(fileName), Encoding.UTF8))
                 MakeCMakeLists(writer);
 
             //VSCode配置文件
             fileName = Path.Combine(dest, ".vscode", "settings.json");
             Directory.CreateDirectory(Path.GetDirectoryName(fileName));
-            using (var writer = new StreamWriter(File.Create(fileName), Encoding.Default))
+            using (var writer = new StreamWriter(File.Create(fileName), Encoding.UTF8))
                 MakeVSCodeSettings(writer);
         }
 
@@ -404,6 +427,27 @@ namespace QIQI.EplOnCpp.Core
                     }
                     break;
 
+                case EocProjectType.Dll:
+                    writer.NewLine();
+                    writer.Write("BOOL APIENTRY DllMain(HANDLE hModule, DWORD ul_reason_for_call, LPVOID lpReserved)");
+                    using (writer.NewBlock())
+                    {
+                        writer.NewLine();
+                        writer.Write("switch(ul_reason_for_call)");
+                        using (writer.NewBlock())
+                        {
+                            writer.NewLine();
+                            writer.Write("case DLL_PROCESS_ATTACH:");
+                            writer.NewLine();
+                            writer.Write("init();");
+                            writer.NewLine();
+                            writer.Write("break;");
+                        }
+                        writer.NewLine();
+                        writer.Write("return TRUE;");
+                    }
+                    break;
+
                 default:
                     throw new Exception("未知项目类型");
             }
@@ -430,6 +474,10 @@ namespace QIQI.EplOnCpp.Core
 
                 case EocProjectType.Console:
                     writer.WriteLine("add_executable(main)");
+                    break;
+
+                case EocProjectType.Dll:
+                    writer.WriteLine("add_library(main SHARED dll_export.def)");
                     break;
 
                 default:
