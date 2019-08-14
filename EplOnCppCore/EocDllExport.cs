@@ -37,7 +37,7 @@ namespace QIQI.EplOnCpp.Core
             {
                 if (i != 0)
                     writer.Write(", ");
-                writer.Write("typename MethodPtrPackager_Arg<");
+                writer.Write("typename e::system::MethodPtrPackager_Arg<");
                 writer.Write(P.GetParameterTypeString(Info.Parameters[i]));
                 writer.Write(">::NativeType ");
                 writer.Write(paramName[i]);
