@@ -10,7 +10,7 @@
     <PackageId>QIQI.EplOnCpp.CLI</PackageId>
     <RootNamespace>QIQI.EplOnCpp.CLI</RootNamespace>
     <AssemblyName>QIQI.EplOnCpp.CLI</AssemblyName>
-    <Version>1.2.0</Version>
+    <Version>1.3.0</Version>
   </PropertyGroup>
 
   <ItemGroup>

@@ -18,7 +18,7 @@
     <Authors>QIQI</Authors>
     <RootNamespace>QIQI.EplOnCpp.Core</RootNamespace>
     <AssemblyName>QIQI.EplOnCpp.Core</AssemblyName>
-    <Version>1.2.0</Version>
+    <Version>1.3.0</Version>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageProjectUrl>https://github.com/1354092549/EplOnCppCore</PackageProjectUrl>
   </PropertyGroup>
