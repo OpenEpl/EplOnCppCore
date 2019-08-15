@@ -115,8 +115,8 @@ namespace QIQI.EplOnCpp.Core
             writer.Write("#include \"../../../stdafx.h\"");
             using (writer.NewNamespace(P.TypeNamespace))
             {
-                bool hasInitMethod = Method.Where(x => x.MethodItem.Name == "_初始化").FirstOrDefault() != null;
-                bool hasDestroyMethod = Method.Where(x => x.MethodItem.Name == "_销毁").FirstOrDefault() != null;
+                var initMethod = Method.Where(x => x.MethodItem.Name == "_初始化").FirstOrDefault();
+                var destroyMethod = Method.Where(x => x.MethodItem.Name == "_销毁").FirstOrDefault();
                 using (writer.NewNamespace("eoc_internal"))
                 {
                     writer.NewLine();
@@ -128,20 +128,20 @@ namespace QIQI.EplOnCpp.Core
                     }
                     using (writer.NewBlock())
                     {
-                        if (hasInitMethod)
+                        if (initMethod != null)
                         {
                             writer.NewLine();
-                            writer.Write("this->_初始化();");
+                            writer.Write($"this->{initMethod.Name}();");
                         }
                     }
                     writer.NewLine();
                     writer.Write($"{RawName}::~{RawName}()");
                     using (writer.NewBlock())
                     {
-                        if (hasDestroyMethod)
+                        if (destroyMethod != null)
                         {
                             writer.NewLine();
-                            writer.Write("this->_销毁();");
+                            writer.Write($"this->{destroyMethod.Name}();");
                         }
                     }
 
