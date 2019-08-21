@@ -141,8 +141,17 @@ namespace QIQI.EplOnCpp.Core
                 {
                     foreach (var item in funcMap)
                     {
+                        var entryPointExpr = item.Key.Item2;
+                        if (entryPointExpr.StartsWith("#")) 
+                        {
+                            entryPointExpr = $"reinterpret_cast<const char *>({Convert.ToInt32(entryPointExpr.Substring(1))})";
+                        }
+                        else
+                        {
+                            entryPointExpr = $"\"{entryPointExpr}\"";
+                        }
                         writer.NewLine();
-                        writer.Write($"eoc_DefineFuncPtrGetter({item.Value}, {P.DllNamespace}::eoc_module::GetMoudleHandle_{item.Key.Item1}(), \"{item.Key.Item2}\");");
+                        writer.Write($"eoc_DefineFuncPtrGetter({item.Value}, {P.DllNamespace}::eoc_module::GetMoudleHandle_{item.Key.Item1}(), {entryPointExpr});");
                     }
                 }
                 foreach (var item in eocDlls)
