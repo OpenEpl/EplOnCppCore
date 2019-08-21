@@ -19,7 +19,7 @@ namespace QIQI.EplOnCpp.Core
 
             Info = info ?? throw new ArgumentNullException(nameof(info));
             LibraryName = libraryName ?? throw new ArgumentNullException(nameof(libraryName));
-            EntryPoint = entryPoint ?? Name;
+            EntryPoint = entryPoint ?? throw new ArgumentNullException(nameof(EntryPoint));
         }
 
         public string Name { get; }
@@ -81,7 +81,13 @@ namespace QIQI.EplOnCpp.Core
 
         public static EocDll Translate(ProjectConverter P, DllDeclareInfo dllDeclare)
         {
-            return new EocDll(P, P.GetUserDefinedName_SimpleCppName(dllDeclare.Id), P.GetEocCmdInfo(dllDeclare), dllDeclare.LibraryName, dllDeclare.EntryPoint);
+            var libraryName = dllDeclare.LibraryName;
+            var entryPoint = dllDeclare.EntryPoint;
+            if (string.IsNullOrEmpty(entryPoint))
+            {
+                entryPoint = P.IdToNameMap.GetUserDefinedName(dllDeclare.Id);
+            }
+            return new EocDll(P, P.GetUserDefinedName_SimpleCppName(dllDeclare.Id), P.GetEocCmdInfo(dllDeclare), libraryName, entryPoint);
         }
 
         public static void Define(ProjectConverter P, CodeWriter writer, EocDll[] eocDlls)
@@ -107,7 +113,7 @@ namespace QIQI.EplOnCpp.Core
             writer.Write("#include <e/system/methodptr_caller.h>");
             using (writer.NewNamespace(P.DllNamespace))
             {
-                var moduleMap = new Dictionary<string, string>();
+                var moduleMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
                 var funcMap = new Dictionary<Tuple<string, string>, string>();
                 for (int i = 0, j = 0, k = 0; i < eocDlls.Length; i++)
                 {
