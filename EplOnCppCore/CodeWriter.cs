@@ -18,7 +18,7 @@ namespace QIQI.EplOnCpp.Core
         public CodeWriter(string fileName)
         {
             Directory.CreateDirectory(Path.GetDirectoryName(fileName));
-            this.streamWriter = new StreamWriter(File.Create(fileName), Encoding.GetEncoding("gbk"));
+            this.streamWriter = new StreamWriter(File.Create(fileName), Encoding.UTF8);
         }
 
         public void Write(string value)

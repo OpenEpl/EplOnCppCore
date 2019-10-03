@@ -120,6 +120,7 @@ namespace QIQI.EplOnCpp.Core
         public EProjectFile.EProjectFile Source { get; }
         public ILoggerWithContext Logger { get; }
         public HashSet<string> Dependencies { get; set; }
+        private List<string> SourceFiles;
 
         public enum EocProjectType
         {
@@ -203,6 +204,13 @@ namespace QIQI.EplOnCpp.Core
             }
         }
 
+        private CodeWriter NewCodeFileByCppName(string dest, string fullName, string ext)
+        {
+            var relativePath = string.Join("/", fullName.Split(new string[] { "::" }, StringSplitOptions.RemoveEmptyEntries)) + "." + ext;
+            SourceFiles.Add(relativePath);
+            return new CodeWriter(Path.Combine(dest, relativePath));
+        }
+
         public void Generate(string dest)
         {
             if (dest == null)
@@ -210,6 +218,7 @@ namespace QIQI.EplOnCpp.Core
                 throw new ArgumentNullException(nameof(dest));
             }
             Directory.CreateDirectory(dest);
+            this.SourceFiles = new List<string>();
 
             foreach (var eocObjectClass in EocObjectClasses)
             {
@@ -268,16 +277,13 @@ namespace QIQI.EplOnCpp.Core
             string fileName;
 
             //常量
-            fileName = GetFileNameByNamespace(dest, ConstantNamespace, "h");
-            using (var writer = new CodeWriter(fileName))
+            using (var writer = NewCodeFileByCppName(dest, ConstantNamespace, "h"))
                 EocConstant.Define(this, writer, EocConstants);
-            fileName = GetFileNameByNamespace(dest, ConstantNamespace, "cpp");
-            using (var writer = new CodeWriter(fileName))
+            using (var writer = NewCodeFileByCppName(dest, ConstantNamespace, "cpp"))
                 EocConstant.Implement(this, writer, EocConstants);
 
             //声明自定义数据类型（结构/对象类）
-            fileName = GetFileNameByNamespace(dest, TypeNamespace, "h");
-            using (var writer = new CodeWriter(fileName))
+            using (var writer = NewCodeFileByCppName(dest, TypeNamespace, "h"))
             {
                 DefineAllTypes(writer);
             }
@@ -285,56 +291,46 @@ namespace QIQI.EplOnCpp.Core
             //实现 对象类
             foreach (var item in EocObjectClasses)
             {
-                fileName = GetFileNameByNamespace(dest, item.CppName, "cpp");
-                using (var writer = new CodeWriter(fileName))
+                using (var writer = NewCodeFileByCppName(dest, item.CppName, "cpp"))
                     item.ImplementRawObjectClass(writer);
             }
 
             //静态类
             foreach (var item in EocStaticClasses)
             {
-                fileName = GetFileNameByNamespace(dest, item.CppName, "h");
-                using (var writer = new CodeWriter(fileName))
+                using (var writer = NewCodeFileByCppName(dest, item.CppName, "h"))
                     item.Define(writer);
-                fileName = GetFileNameByNamespace(dest, item.CppName, "cpp");
-                using (var writer = new CodeWriter(fileName))
+                using (var writer = NewCodeFileByCppName(dest, item.CppName, "cpp"))
                     item.Implement(writer);
             }
 
             //全局变量
-            fileName = GetFileNameByNamespace(dest, GlobalNamespace, "h");
-            using (var writer = new CodeWriter(fileName))
+            using (var writer = NewCodeFileByCppName(dest, GlobalNamespace, "h"))
                 EocGlobalVariable.Define(this, writer, EocGlobalVariables);
-            fileName = GetFileNameByNamespace(dest, GlobalNamespace, "cpp");
-            using (var writer = new CodeWriter(fileName))
+            using (var writer = NewCodeFileByCppName(dest, GlobalNamespace, "cpp"))
                 EocGlobalVariable.Implement(this, writer, EocGlobalVariables);
 
             //DLL
-            fileName = GetFileNameByNamespace(dest, DllNamespace, "h");
-            using (var writer = new CodeWriter(fileName))
+            using (var writer = NewCodeFileByCppName(dest, DllNamespace, "h"))
                 EocDll.Define(this, writer, EocDllDeclares);
-            fileName = GetFileNameByNamespace(dest, DllNamespace, "cpp");
-            using (var writer = new CodeWriter(fileName))
+            using (var writer = NewCodeFileByCppName(dest, DllNamespace, "cpp"))
                 EocDll.Implement(this, writer, EocDllDeclares);
 
             //预编译头
-            fileName = GetFileNameByNamespace(dest, "stdafx", "h");
-            using (var writer = new CodeWriter(fileName))
+            using (var writer = NewCodeFileByCppName(dest, "stdafx", "h"))
                 MakeStandardHeader(writer);
 
             //程序入口
-            fileName = GetFileNameByNamespace(dest, "entry", "cpp");
-            using (var writer = new CodeWriter(fileName))
+            using (var writer = NewCodeFileByCppName(dest, "entry", "cpp"))
                 MakeProgramEntry(writer);
 
             //Dll导出
             if (EocDllExports != null)
             {
-                fileName = GetFileNameByNamespace(dest, "dll_export", "cpp");
-                using (var writer = new CodeWriter(fileName))
+                using (var writer = NewCodeFileByCppName(dest, "dll_export", "cpp"))
                     EocDllExport.Implement(this, writer, EocDllExports);
-                fileName = GetFileNameByNamespace(dest, "dll_export", "def");
-                using (var writer = new StreamWriter(File.Create(fileName), Encoding.GetEncoding("gbk")))
+                fileName = Path.Combine(dest, "dll_export.def");
+                using (var writer = new StreamWriter(File.Create(fileName), Encoding.UTF8))
                 {
                     EocDllExport.MakeDef(this, writer, EocDllExports);
                 }
@@ -460,7 +456,7 @@ namespace QIQI.EplOnCpp.Core
             writer.WriteLine();
             //引用EocBuildHelper
             writer.WriteLine("if(NOT DEFINED EOC_HOME)");
-            writer.WriteLine("set(EOC_HOME $ENV{EOC_HOME})");
+            writer.WriteLine("    set(EOC_HOME $ENV{EOC_HOME})");
             writer.WriteLine("endif()");
             writer.WriteLine("include(${EOC_HOME}/EocBuildHelper.cmake)");
             writer.WriteLine();
@@ -485,14 +481,16 @@ namespace QIQI.EplOnCpp.Core
             }
             writer.WriteLine();
             //添加源代码
-            writer.WriteLine("aux_source_directory(. DIR_SRCS_ENTRY)");
-            writer.WriteLine("aux_source_directory(e/user DIR_SRCS_ROOT)");
-            writer.WriteLine("aux_source_directory(e/user/cmd DIR_SRCS_CMD)");
-            writer.WriteLine("aux_source_directory(e/user/type DIR_SRCS_TYPE)");
-            writer.WriteLine("target_sources(main PRIVATE ${DIR_SRCS_ENTRY})");
-            writer.WriteLine("target_sources(main PRIVATE ${DIR_SRCS_ROOT})");
-            writer.WriteLine("target_sources(main PRIVATE ${DIR_SRCS_CMD})");
-            writer.WriteLine("target_sources(main PRIVATE ${DIR_SRCS_TYPE})");
+            writer.Write("target_sources(main PRIVATE ");
+            foreach (var src in SourceFiles)
+            {
+                writer.WriteLine();
+                writer.Write("                            ");
+                writer.Write("\"");
+                writer.Write(src);
+                writer.Write("\"");
+            }
+            writer.WriteLine(")");
             writer.WriteLine();
             //启用C++17
             writer.WriteLine("set_property(TARGET main PROPERTY CXX_STANDARD 17)");
@@ -522,10 +520,12 @@ namespace QIQI.EplOnCpp.Core
             writer.WriteLine("{");
             writer.WriteLine("    \"C_Cpp.default.configurationProvider\": \"vector-of-bool.cmake-tools\",");
             writer.WriteLine("    \"[cpp]\": {");
-            writer.WriteLine("        \"files.encoding\": \"gb18030\"");
+            writer.WriteLine("        \"files.encoding\": \"utf8bom\"");
             writer.WriteLine("    },");
             writer.WriteLine("    \"files.exclude\": {");
-            writer.WriteLine("        \"build\": true");
+            writer.WriteLine("        \".vs\": true, ");
+            writer.WriteLine("        \"build\": true, ");
+            writer.WriteLine("        \"out\": true");
             writer.WriteLine("    }");
             writer.WriteLine("}");
         }
@@ -705,14 +705,6 @@ namespace QIQI.EplOnCpp.Core
                 }
             }
             writer.Write(")");
-        }
-
-        private static string GetFileNameByNamespace(string dest, string fullName, string ext)
-        {
-            return Path.Combine(
-                new string[] { dest }.Concat(
-                    fullName.Split(new string[] { "::" }, StringSplitOptions.RemoveEmptyEntries))
-                    .ToArray()) + "." + ext;
         }
 
         public int CalculateArraySize(int[] UBound)
