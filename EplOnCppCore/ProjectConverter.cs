@@ -497,10 +497,7 @@ namespace QIQI.EplOnCpp.Core
             writer.WriteLine("set_property(TARGET main PROPERTY CXX_STANDARD_REQUIRED ON)");
             writer.WriteLine();
             //系统库
-            writer.WriteLine("include(${EOC_LIBS_DIRS}/system/config.cmake)");
-            writer.WriteLine("target_include_directories(main PRIVATE ${EocSystem_INCLUDE_DIRS})");
-            writer.WriteLine("target_link_libraries(main ${EocSystem_LIBRARIES})");
-            writer.WriteLine();
+            writer.WriteLine("target_link_eoc_lib(main system EocSystem)");
             //支持库
             for (int i = 0; i < Source.Code.Libraries.Length; i++)
             {
