@@ -508,10 +508,7 @@ namespace QIQI.EplOnCpp.Core
                 string libCMakeName = EocLibs[i]?.CMakeName;
                 if (string.IsNullOrEmpty(libCMakeName))
                     continue;
-                writer.WriteLine($"include(${{EOC_LIBS_DIRS}}/{item.FileName}/config.cmake)");
-                writer.WriteLine($"target_include_directories(main PRIVATE ${{{libCMakeName}_INCLUDE_DIRS}})");
-                writer.WriteLine($"target_link_libraries(main ${{{libCMakeName}_LIBRARIES}})");
-                writer.WriteLine();
+                writer.WriteLine($"target_link_eoc_lib(main {item.FileName} {libCMakeName})");
             }
         }
 
