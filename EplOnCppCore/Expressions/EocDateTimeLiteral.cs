@@ -20,7 +20,7 @@ namespace QIQI.EplOnCpp.Core.Expressions
 
         public override CppTypeName GetResultType()
         {
-            return ProjectConverter.CppTypeName_DateTime;
+            return EocDataTypes.DateTime;
         }
 
         public override void WriteTo(CodeWriter writer)

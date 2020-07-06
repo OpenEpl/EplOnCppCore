@@ -1,4 +1,5 @@
-﻿using QIQI.EProjectFile;
+﻿using QIQI.EplOnCpp.Core.Utils;
+using QIQI.EProjectFile;
 using QuickGraph;
 using System;
 using System.Collections.Generic;
@@ -43,7 +44,7 @@ namespace QIQI.EplOnCpp.Core
                 writer.Write(paramName[i]);
             }
             writer.Write(")");
-            using(writer.NewBlock())
+            using (writer.NewBlock())
             {
                 writer.NewLine();
                 writer.Write("return e::system::MethodPtrPackager<");
@@ -58,14 +59,14 @@ namespace QIQI.EplOnCpp.Core
             }
         }
 
-        public static void Implement(ProjectConverter P, CodeWriter writer, EocDllExport[] dllExports)
+        public static void Implement(ProjectConverter P, CodeWriter writer, SortedDictionary<int, EocDllExport> map)
         {
             writer.Write("#include \"stdafx.h\"");
             writer.NewLine();
             writer.Write("extern \"C\"");
             using (writer.NewBlock())
             {
-                foreach (var item in dllExports)
+                foreach (var item in map.Values)
                 {
                     item.ImplementItem(P, writer);
                 }
@@ -77,22 +78,22 @@ namespace QIQI.EplOnCpp.Core
             writer.WriteLine($"{Name} = eoc_export_{ExportId}");
         }
 
-        public static void MakeDef(ProjectConverter P, StreamWriter writer, EocDllExport[] dllExports)
+        public static void MakeDef(ProjectConverter P, StreamWriter writer, SortedDictionary<int, EocDllExport> map)
         {
             writer.WriteLine("EXPORTS");
-            foreach (var item in dllExports)
+            foreach (var item in map.Values)
             {
                 item.MakeDefItem(P, writer);
             }
         }
 
-        public static EocDllExport[] Translate(ProjectConverter P, IEnumerable<MethodInfo> methods)
+        public static SortedDictionary<int, EocDllExport> Translate(ProjectConverter P, IEnumerable<int> ids)
         {
-            return methods.Select(x => Translate(P, x)).ToArray();
+            return ids.ToSortedDictionary(x => x, x => Translate(P, x));
         }
-        public static EocDllExport Translate(ProjectConverter P, MethodInfo methodInfo)
+        public static EocDllExport Translate(ProjectConverter P, int id)
         {
-            return new EocDllExport(P, P.IdToNameMap.GetUserDefinedName(methodInfo.Id), P.GetEocCmdInfo(methodInfo), methodInfo.Id.ToString("X8"));
+            return new EocDllExport(P, P.IdToNameMap.GetUserDefinedName(id), P.GetEocCmdInfo(id), id.ToString("X8"));
         }
     }
 }

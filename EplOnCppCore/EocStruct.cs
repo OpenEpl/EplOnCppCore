@@ -1,4 +1,5 @@
-﻿using QIQI.EProjectFile;
+﻿using QIQI.EplOnCpp.Core.Utils;
+using QIQI.EProjectFile;
 using QuickGraph;
 using QuickGraph.Algorithms;
 using System;
@@ -14,7 +15,8 @@ namespace QIQI.EplOnCpp.Core
         public ProjectConverter P { get; }
         public string RefId => CppName;
         public StructInfo RawInfo { get; }
-        public string Name { get;  }
+        public SortedDictionary<int, EocMemberInfo> MemberInfoMap { get; set; }
+        public string Name { get; }
         public string CppName { get; }
         public string RawName { get; }
         public string RawCppName { get; }
@@ -26,16 +28,22 @@ namespace QIQI.EplOnCpp.Core
             Name = P.GetUserDefinedName_SimpleCppName(RawInfo.Id);
             RawName = "raw_" + Name;
             RawCppName = $"{P.TypeNamespace}::eoc_internal::{RawName}";
-            CppName = P.GetCppTypeName(rawInfo.Id).ToString();
+            CppName = EocDataTypes.Translate(P, rawInfo.Id).ToString();
+            MemberInfoMap = RawInfo.Member.ToSortedDictionary(x => x.Id, x => new EocMemberInfo()
+            {
+                CppName = P.GetUserDefinedName_SimpleCppName(x.Id),
+                DataType = EocDataTypes.Translate(P, x.DataType, x.UBound),
+                UBound = x.UBound.ToList()
+            });
         }
         public void AnalyzeDependencies(AdjacencyGraph<string, IEdge<string>> graph)
         {
             graph.AddVertex(RefId);
-            foreach (var x in RawInfo.Member)
+            foreach (var x in MemberInfoMap.Values)
             {
-                var varRefId = $"{RefId}|{P.GetUserDefinedName_SimpleCppName(x.Id)}";
+                var varRefId = $"{RefId}|{x.CppName}";
                 graph.AddVerticesAndEdge(new Edge<string>(RefId, varRefId));
-                P.AnalyzeDependencies(graph, varRefId, P.GetCppTypeName(x));
+                P.AnalyzeDependencies(graph, varRefId, x.DataType);
             }
         }
 
@@ -56,14 +64,14 @@ namespace QIQI.EplOnCpp.Core
             writer.Write($"struct {RawName}");
             using (writer.NewBlock())
             {
-                P.DefineVariable(writer, null, RawInfo.Member, false);
+                P.DefineVariable(writer, null, MemberInfoMap.Values, false);
 
                 writer.NewLine();
                 writer.Write($"{RawName}()");
-                if (RawInfo.Member.Length != 0)
+                if (MemberInfoMap.Count != 0)
                 {
                     writer.Write(": ");
-                    P.InitMembersInConstructor(writer, RawInfo.Member);
+                    P.InitMembersInConstructor(writer, MemberInfoMap.Values);
                 }
                 using (writer.NewBlock())
                 {
@@ -137,38 +145,37 @@ namespace QIQI.EplOnCpp.Core
                 }
             }
         }
-        public static void DefineRawName(ProjectConverter P, CodeWriter writer, EocStruct[] collection)
+        public static void DefineRawName(ProjectConverter P, CodeWriter writer, SortedDictionary<int, EocStruct> map)
         {
             //In e::user::type::eoc_internal
-            foreach (var item in collection)
+            foreach (var item in map.Values)
             {
                 item.DefineRawName(writer);
             }
         }
 
-        public static void DefineName(ProjectConverter P, CodeWriter writer, EocStruct[] collection)
+        public static void DefineName(ProjectConverter P, CodeWriter writer, SortedDictionary<int, EocStruct> map)
         {
             //In e::user::type
-            foreach (var item in collection)
+            foreach (var item in map.Values)
             {
                 item.DefineName(writer);
             }
         }
-        public static void DefineRawStructInfo(ProjectConverter P, CodeWriter writer, EocStruct[] collection)
+        public static void DefineRawStructInfo(ProjectConverter P, CodeWriter writer, SortedDictionary<int, EocStruct> map)
         {
             //In e::user::type::eoc_internal
-            foreach (var item in collection)
+            foreach (var item in map.Values)
             {
                 item.DefineRawStructInfo(writer);
             }
         }
 
-        public static void DefineStructMarshaler(ProjectConverter P, CodeWriter writer, EocStruct[] collection)
+        public static void DefineStructMarshaler(ProjectConverter P, CodeWriter writer, SortedDictionary<int, EocStruct> map)
         {
             //In e::system
-            var map = collection.ToDictionary(x => x.RawInfo.Id);
             var graph = new AdjacencyGraph<EocStruct, IEdge<EocStruct>>();
-            foreach (var item in collection)
+            foreach (var item in map.Values)
             {
                 var hasDependentItem = false;
                 foreach (var member in item.RawInfo.Member)
@@ -192,9 +199,9 @@ namespace QIQI.EplOnCpp.Core
             }
         }
 
-        public static EocStruct[] Translate(ProjectConverter P, IEnumerable<StructInfo> rawInfo)
+        public static SortedDictionary<int, EocStruct> Translate(ProjectConverter P, IEnumerable<StructInfo> rawInfos)
         {
-            return rawInfo.Select(x => Translate(P, x)).ToArray();
+            return rawInfos.ToSortedDictionary(x => x.Id, x => Translate(P, x));
         }
 
         public static EocStruct Translate(ProjectConverter P, StructInfo rawInfo)

@@ -1,4 +1,5 @@
-﻿using QIQI.EProjectFile;
+﻿using QIQI.EplOnCpp.Core.Utils;
+using QIQI.EProjectFile;
 using QuickGraph;
 using QuickGraph.Algorithms;
 using System;
@@ -27,24 +28,30 @@ namespace QIQI.EplOnCpp.Core
             else
             {
                 BaseClassName = P.GetUserDefinedName_SimpleCppName(rawInfo.BaseClass);
-                BaseClassCppName = P.GetCppTypeName(rawInfo.BaseClass).ToString();
+                BaseClassCppName = EocDataTypes.Translate(P, rawInfo.BaseClass).ToString();
                 BaseClassRawName = $"raw_{BaseClassName}";
                 BaseClassRawCppName = $"{P.TypeNamespace}::eoc_internal::{BaseClassRawName}";
             }
+            MemberInfoMap = RawInfo.Variables.ToSortedDictionary(x => x.Id, x => new EocMemberInfo()
+            {
+                CppName = P.GetUserDefinedName_SimpleCppName(x.Id),
+                DataType = EocDataTypes.Translate(P, x.DataType, x.UBound),
+                UBound = x.UBound.ToList()
+            });
         }
 
-        public override void AnalyzeDependencies(AdjacencyGraph<string,IEdge<string>> graph)
+        public override void AnalyzeDependencies(AdjacencyGraph<string, IEdge<string>> graph)
         {
             graph.AddVertex(RefId);
             if (BaseClassCppName != null)
                 graph.AddVerticesAndEdge(new Edge<string>(RefId, BaseClassCppName));
-            foreach (var x in RawInfo.Variables)
+            foreach (var x in MemberInfoMap.Values)
             {
-                var varRefId = $"{RefId}|{P.GetUserDefinedName_SimpleCppName(x.Id)}";
+                var varRefId = $"{RefId}|{x.CppName}";
                 graph.AddVerticesAndEdge(new Edge<string>(RefId, varRefId));
-                P.AnalyzeDependencies(graph, varRefId, P.GetCppTypeName(x));
+                P.AnalyzeDependencies(graph, varRefId, x.DataType);
             }
-            foreach (var x in Method)
+            foreach (var x in Method.Values)
             {
                 graph.AddVerticesAndEdge(new Edge<string>(RefId, x.RefId));
                 x.AnalyzeDependencies(graph);
@@ -53,7 +60,7 @@ namespace QIQI.EplOnCpp.Core
 
         public override void RemoveUnusedCode(HashSet<string> dependencies)
         {
-            foreach (var item in Method)
+            foreach (var item in Method.Values)
             {
                 item.RemoveUnusedCode(dependencies);
             }
@@ -87,10 +94,10 @@ namespace QIQI.EplOnCpp.Core
             using (writer.NewBlock())
             {
                 writer.NewLine();
-                if (RawInfo.Variables.Length != 0)
+                if (MemberInfoMap.Count != 0)
                 {
                     writer.Write("private:");
-                    P.DefineVariable(writer, null, RawInfo.Variables, false);
+                    P.DefineVariable(writer, null, MemberInfoMap.Values, false);
                 }
                 writer.NewLine();
                 writer.Write("public:");
@@ -102,7 +109,7 @@ namespace QIQI.EplOnCpp.Core
                 writer.Write($"virtual ~{RawName}();");
                 writer.NewLine();
                 writer.Write($"virtual e::system::basic_object* __stdcall clone();");
-                foreach (var item in Method)
+                foreach (var item in Method.Values)
                 {
                     item.DefineItem(writer);
                 }
@@ -115,16 +122,16 @@ namespace QIQI.EplOnCpp.Core
             writer.Write("#include \"../../../stdafx.h\"");
             using (writer.NewNamespace(P.TypeNamespace))
             {
-                var initMethod = Method.Where(x => x.MethodItem.Name == "_初始化").FirstOrDefault();
-                var destroyMethod = Method.Where(x => x.MethodItem.Name == "_销毁").FirstOrDefault();
+                var initMethod = Method.Values.Where(x => x.MethodItem.Name == "_初始化").FirstOrDefault();
+                var destroyMethod = Method.Values.Where(x => x.MethodItem.Name == "_销毁").FirstOrDefault();
                 using (writer.NewNamespace("eoc_internal"))
                 {
                     writer.NewLine();
                     writer.Write($"{RawName}::{RawName}()");
-                    if (RawInfo.Variables.Length != 0)
+                    if (MemberInfoMap.Count != 0)
                     {
                         writer.Write(": ");
-                        P.InitMembersInConstructor(writer, RawInfo.Variables);
+                        P.InitMembersInConstructor(writer, MemberInfoMap.Values);
                     }
                     using (writer.NewBlock())
                     {
@@ -156,7 +163,7 @@ namespace QIQI.EplOnCpp.Core
                         writer.Write($"return new {RawName}(*this);");
                     }
 
-                    foreach (var item in Method)
+                    foreach (var item in Method.Values)
                     {
                         item.ImplementItem(writer);
                     }
@@ -164,32 +171,32 @@ namespace QIQI.EplOnCpp.Core
             }
         }
 
-        public static void DefineRawName(ProjectConverter P, CodeWriter writer, EocObjectClass[] collection)
+        public static void DefineRawName(ProjectConverter P, CodeWriter writer, SortedDictionary<int, EocObjectClass> map)
         {
             //In e::user::type::eoc_internal
-            foreach (var item in collection)
+            foreach (var item in map.Values)
             {
                 item.DefineRawName(writer);
             }
         }
 
-        public static void DefineName(ProjectConverter P, CodeWriter writer, EocObjectClass[] collection)
+        public static void DefineName(ProjectConverter P, CodeWriter writer, SortedDictionary<int, EocObjectClass> map)
         {
             //In e::user::type
-            foreach (var item in collection)
+            foreach (var item in map.Values)
             {
                 item.DefineName(writer);
             }
         }
 
-        public static void DefineRawObjectClass(ProjectConverter P, CodeWriter writer, EocObjectClass[] collection)
+        public static void DefineRawObjectClass(ProjectConverter P, CodeWriter writer, SortedDictionary<int, EocObjectClass> map)
         {
             //In e::user::type::eoc_internal
-            var map = collection.ToDictionary(x => x.CppName);
+            var nameMap = map.ToDictionary(x => x.Value.CppName, x => x.Value);
             var graph = new AdjacencyGraph<EocObjectClass, IEdge<EocObjectClass>>();
-            foreach (var item in collection)
+            foreach (var item in map.Values)
             {
-                if (item.BaseClassCppName != null && map.TryGetValue(item.BaseClassCppName, out var baseEocClass))
+                if (item.BaseClassCppName != null && nameMap.TryGetValue(item.BaseClassCppName, out var baseEocClass))
                 {
                     graph.AddVerticesAndEdge(new Edge<EocObjectClass>(baseEocClass, item));
                 }
@@ -205,9 +212,9 @@ namespace QIQI.EplOnCpp.Core
             }
         }
 
-        public static EocObjectClass[] Translate(ProjectConverter P, IEnumerable<ClassInfo> rawInfo)
+        public static SortedDictionary<int, EocObjectClass> Translate(ProjectConverter P, IEnumerable<ClassInfo> rawInfos)
         {
-            return rawInfo.Select(x => Translate(P, x)).ToArray();
+            return rawInfos.ToSortedDictionary(x => x.Id, x => Translate(P, x));
         }
 
         public static EocObjectClass Translate(ProjectConverter P, ClassInfo rawInfo)

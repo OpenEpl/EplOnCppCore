@@ -19,7 +19,7 @@ namespace QIQI.EplOnCpp.Core.Expressions
 
         public override CppTypeName GetResultType()
         {
-            return ProjectConverter.CppTypeName_Bool;
+            return EocDataTypes.Bool;
         }
 
         public override void WriteTo(CodeWriter writer)

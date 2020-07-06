@@ -70,7 +70,7 @@ namespace QIQI.EplOnCpp.Core.Statements
                 writer.NewLine();
                 writer.Write(i == 0 ? "if" : "else if");
                 writer.Write(" (");
-                Case[i].Condition.WriteToWithCast(writer, ProjectConverter.CppTypeName_Bool);
+                Case[i].Condition.WriteToWithCast(writer, EocDataTypes.Bool);
                 writer.Write(")");
                 using (writer.NewBlock())
                 {

@@ -21,7 +21,7 @@ namespace QIQI.EplOnCpp.Core.Expressions
 
         public override CppTypeName GetResultType()
         {
-            return ProjectConverter.CppTypeName_MethodPtr;
+            return EocDataTypes.MethodPtr;
         }
 
         public override void WriteTo(CodeWriter writer)

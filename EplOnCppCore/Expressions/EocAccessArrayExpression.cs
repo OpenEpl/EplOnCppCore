@@ -34,12 +34,12 @@ namespace QIQI.EplOnCpp.Core.Expressions
                     return x.TypeParam[0];
 
                 case null:
-                case CppTypeName sc when sc == ProjectConverter.CppTypeName_SkipCheck:
-                case CppTypeName any when any == ProjectConverter.CppTypeName_Any:
+                case CppTypeName sc when sc == EocDataTypes.Auto:
+                case CppTypeName any when any == EocDataTypes.Any:
                     return arrayItemType;
 
-                case CppTypeName x when x == ProjectConverter.CppTypeName_Bin:
-                    return ProjectConverter.CppTypeName_Byte;
+                case CppTypeName x when x == EocDataTypes.Bin:
+                    return EocDataTypes.Byte;
 
                 default:
                     throw new NotImplementedException();

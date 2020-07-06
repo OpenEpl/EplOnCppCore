@@ -71,7 +71,7 @@ namespace QIQI.EplOnCpp.Core.Statements
                 Block.WriteTo(writer);
             }
             writer.Write("while (");
-            Condition.WriteToWithCast(writer, ProjectConverter.CppTypeName_Bool);
+            Condition.WriteToWithCast(writer, EocDataTypes.Bool);
             writer.Write("); ");
             writer.AddComment(CommentOnEnd);
         }

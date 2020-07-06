@@ -1,4 +1,5 @@
-﻿using QIQI.EProjectFile;
+﻿using QIQI.EplOnCpp.Core.Utils;
+using QIQI.EProjectFile;
 using QuickGraph;
 using System;
 using System.Collections.Generic;
@@ -74,37 +75,55 @@ namespace QIQI.EplOnCpp.Core
             }
         }
 
-        public static EocDll[] Translate(ProjectConverter P, IEnumerable<DllDeclareInfo> dllDeclare)
+        public static SortedDictionary<int, EocDll> Translate(ProjectConverter P, IEnumerable<DllDeclareInfo> rawInfos)
         {
-            return dllDeclare.Select(x => Translate(P, x)).ToArray();
+            return rawInfos.ToSortedDictionary(x => x.Id, x => Translate(P, x));
         }
 
-        public static EocDll Translate(ProjectConverter P, DllDeclareInfo dllDeclare)
+        public static EocDll Translate(ProjectConverter P, DllDeclareInfo rawInfo)
         {
-            var libraryName = dllDeclare.LibraryName;
-            var entryPoint = dllDeclare.EntryPoint;
+            var libraryName = rawInfo.LibraryName;
+            var entryPoint = rawInfo.EntryPoint;
             if (string.IsNullOrEmpty(entryPoint))
             {
-                entryPoint = P.IdToNameMap.GetUserDefinedName(dllDeclare.Id);
+                entryPoint = P.IdToNameMap.GetUserDefinedName(rawInfo.Id);
             }
-            return new EocDll(P, P.GetUserDefinedName_SimpleCppName(dllDeclare.Id), P.GetEocCmdInfo(dllDeclare), libraryName, entryPoint);
+            var name = P.GetUserDefinedName_SimpleCppName(rawInfo.Id);
+            var info = new EocCmdInfo()
+            {
+                ReturnDataType = rawInfo.ReturnDataType == 0 ? null : EocDataTypes.Translate(P, rawInfo.ReturnDataType),
+                CppName = $"{P.DllNamespace}::{name}",
+                Parameters = rawInfo.Parameters.Select((x) =>
+                {
+                    var dataType = EocDataTypes.Translate(P, x.DataType, x.ArrayParameter);
+                    return new EocParameterInfo()
+                    {
+                        ByRef = x.ByRef || x.ArrayParameter || !EocDataTypes.IsValueType(dataType),
+                        Optional = false,
+                        VarArgs = false,
+                        DataType = dataType,
+                        CppName = P.GetUserDefinedName_SimpleCppName(x.Id)
+                    };
+                }).ToList()
+            };
+            return new EocDll(P, name, info, libraryName, entryPoint);
         }
 
-        public static void Define(ProjectConverter P, CodeWriter writer, EocDll[] eocDlls)
+        public static void Define(ProjectConverter P, CodeWriter writer, SortedDictionary<int, EocDll> map)
         {
             writer.Write("#pragma once");
             writer.NewLine();
             writer.Write("#include \"type.h\"");
             using (writer.NewNamespace(P.DllNamespace))
             {
-                foreach (var item in eocDlls)
+                foreach (var item in map.Values)
                 {
                     item.DefineItem(writer);
                 }
             }
         }
 
-        public static void Implement(ProjectConverter P, CodeWriter writer, EocDll[] eocDlls)
+        public static void Implement(ProjectConverter P, CodeWriter writer, SortedDictionary<int, EocDll> map)
         {
             writer.Write("#include \"dll.h\"");
             writer.NewLine();
@@ -115,7 +134,8 @@ namespace QIQI.EplOnCpp.Core
             {
                 var moduleMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
                 var funcMap = new Dictionary<Tuple<string, string>, string>();
-                for (int i = 0, j = 0, k = 0; i < eocDlls.Length; i++)
+                var eocDlls = map.Values.ToList();
+                for (int i = 0, j = 0, k = 0; i < eocDlls.Count; i++)
                 {
                     var item = eocDlls[i];
                     if (!moduleMap.TryGetValue(item.LibraryName, out var dllIdInCpp))
@@ -142,7 +162,7 @@ namespace QIQI.EplOnCpp.Core
                     foreach (var item in funcMap)
                     {
                         var entryPointExpr = item.Key.Item2;
-                        if (entryPointExpr.StartsWith("#")) 
+                        if (entryPointExpr.StartsWith("#"))
                         {
                             entryPointExpr = $"reinterpret_cast<const char *>({Convert.ToInt32(entryPointExpr.Substring(1))})";
                         }

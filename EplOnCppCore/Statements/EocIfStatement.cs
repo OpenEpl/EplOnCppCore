@@ -25,7 +25,7 @@ namespace QIQI.EplOnCpp.Core.Statements
         public override EocStatement Optimize()
         {
             Condition = Condition?.Optimize();
-            if (!Mask && Condition.TryGetConstValueWithCast(ProjectConverter.CppTypeName_Bool, out var x))
+            if (!Mask && Condition.TryGetConstValueWithCast(EocDataTypes.Bool, out var x))
             {
                 if ((bool)x == false)
                 {
@@ -61,7 +61,7 @@ namespace QIQI.EplOnCpp.Core.Statements
             if (Mask)
                 writer.Write("// ");
             writer.Write("if (");
-            Condition.WriteToWithCast(writer, ProjectConverter.CppTypeName_Bool);
+            Condition.WriteToWithCast(writer, EocDataTypes.Bool);
             writer.Write(")");
             writer.AddComment(Comment);
             using (writer.NewBlock())

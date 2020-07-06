@@ -25,12 +25,12 @@ namespace QIQI.EplOnCpp.Core.Expressions
             foreach (var item in Item)
             {
                 var elemType = item.GetResultType();
-                if (elemType != ProjectConverter.CppTypeName_SkipCheck)
+                if (elemType != EocDataTypes.Auto)
                 {
                     return new CppTypeName(false, "e::system::array", new[] { elemType });
                 }
             }
-            return ProjectConverter.CppTypeName_Bin;
+            return EocDataTypes.Bin;
         }
 
         public override void WriteTo(CodeWriter writer)
@@ -40,15 +40,15 @@ namespace QIQI.EplOnCpp.Core.Expressions
 
         public override void WriteToWithCast(CodeWriter writer, CppTypeName cast)
         {
-            if (cast == null || cast == ProjectConverter.CppTypeName_SkipCheck || cast == ProjectConverter.CppTypeName_Any)
+            if (cast == null || cast == EocDataTypes.Auto || cast == EocDataTypes.Any)
             {
                 cast = GetResultType();
             }
             var resultType = cast;
             CppTypeName elemType;
-            if (cast == ProjectConverter.CppTypeName_Bin)
+            if (cast == EocDataTypes.Bin)
             {
-                elemType = ProjectConverter.CppTypeName_Byte;
+                elemType = EocDataTypes.Byte;
             }
             else if (cast.Name == "e::system::array")
             {
@@ -89,9 +89,9 @@ namespace QIQI.EplOnCpp.Core.Expressions
         {
             var resultType = cast;
             CppTypeName elemType;
-            if (cast == ProjectConverter.CppTypeName_Bin)
+            if (cast == EocDataTypes.Bin)
             {
-                elemType = ProjectConverter.CppTypeName_Byte;
+                elemType = EocDataTypes.Byte;
             }
             else if (cast.Name == "e::system::array")
             {

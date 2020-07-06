@@ -1,4 +1,5 @@
-﻿using QIQI.EProjectFile;
+﻿using QIQI.EplOnCpp.Core.Utils;
+using QIQI.EProjectFile;
 using QuickGraph;
 using System;
 using System.Collections.Generic;
@@ -13,7 +14,8 @@ namespace QIQI.EplOnCpp.Core
         public ClassInfo RawInfo { get; }
         public string Name { get; }
         public string CppName { get; }
-        public List<CodeConverter> Method { get; }
+        public SortedDictionary<int, CodeConverter> Method { get; set; }
+        public SortedDictionary<int, EocMemberInfo> MemberInfoMap { get; set; }
 
         public abstract void AnalyzeDependencies(AdjacencyGraph<string, IEdge<string>> graph);
         public abstract void RemoveUnusedCode(HashSet<string> dependencies);
@@ -31,12 +33,12 @@ namespace QIQI.EplOnCpp.Core
             {
                 CppName = $"{P.CmdNamespace}::{Name}";
             }
-            Method = RawInfo.Method.Select(x => P.MethodIdMap[x]).Select(x => new CodeConverter(P, this, x)).ToList();
+            Method = RawInfo.Method.Select(x => P.MethodIdMap[x]).ToSortedDictionary(x => x.Id, x => new CodeConverter(P, this, x));
         }
 
         public void ParseCode()
         {
-            foreach (var item in Method)
+            foreach (var item in Method.Values)
             {
                 item.ParseCode();
             }
@@ -44,9 +46,10 @@ namespace QIQI.EplOnCpp.Core
 
         public void Optimize()
         {
-            for (int i = 0; i < Method.Count; i++)
+            var keys = Method.Keys.ToList();
+            foreach (var id in keys)
             {
-                Method[i] = Method[i].Optimize();
+                Method[id] = Method[id].Optimize();
             }
         }
     }

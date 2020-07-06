@@ -21,7 +21,7 @@ namespace QIQI.EplOnCpp.Core.Expressions
         public virtual void WriteToWithCast(CodeWriter writer, CppTypeName cast)
         {
             var exprType = GetResultType();
-            if (cast == null || cast == ProjectConverter.CppTypeName_SkipCheck || cast == exprType)
+            if (cast == null || cast == EocDataTypes.Auto || cast == exprType)
             {
                 WriteTo(writer);
                 return;
@@ -50,18 +50,18 @@ namespace QIQI.EplOnCpp.Core.Expressions
         {
             if (!TryGetConstValue(out value))
                 return false;
-            var type = ProjectConverter.GetConstValueType(value);
+            var type = EocDataTypes.GetConstValueType(value);
             if (type == cast)
                 return true;
-            if (P.IsArithmeticType(type) && P.IsArithmeticType(cast)) 
+            if (EocDataTypes.IsArithmeticType(type) && EocDataTypes.IsArithmeticType(cast)) 
             {
                 var NumberConverter = new Dictionary<CppTypeName, Func<object, object>> {
-                    { ProjectConverter.CppTypeName_Byte, x => Convert.ToByte(x) },
-                    { ProjectConverter.CppTypeName_Short, x => Convert.ToInt16(x) },
-                    { ProjectConverter.CppTypeName_Int, x => Convert.ToInt32(x) },
-                    { ProjectConverter.CppTypeName_Long, x => Convert.ToInt64(x) },
-                    { ProjectConverter.CppTypeName_Float, x => Convert.ToSingle(x) },
-                    { ProjectConverter.CppTypeName_Double, x => Convert.ToDouble(x) },
+                    { EocDataTypes.Byte, x => Convert.ToByte(x) },
+                    { EocDataTypes.Short, x => Convert.ToInt16(x) },
+                    { EocDataTypes.Int, x => Convert.ToInt32(x) },
+                    { EocDataTypes.Long, x => Convert.ToInt64(x) },
+                    { EocDataTypes.Float, x => Convert.ToSingle(x) },
+                    { EocDataTypes.Double, x => Convert.ToDouble(x) },
                 };
                 if (NumberConverter.TryGetValue(cast, out var converter)) 
                 {

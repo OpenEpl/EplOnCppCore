@@ -40,7 +40,7 @@ namespace QIQI.EplOnCpp.Core.Expressions
         {
             if (!TryGetConstValue(out var v))
                 throw new Exception();
-            return ProjectConverter.GetConstValueType(v);
+            return EocDataTypes.GetConstValueType(v);
         }
 
         public override void WriteTo(CodeWriter writer)

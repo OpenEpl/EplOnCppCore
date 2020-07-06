@@ -1,5 +1,6 @@
 ﻿using QIQI.EplOnCpp.Core.Expressions;
 using QIQI.EplOnCpp.Core.Statements;
+using QIQI.EplOnCpp.Core.Utils;
 using QIQI.EProjectFile;
 using QuickGraph;
 using System;
@@ -13,31 +14,73 @@ namespace QIQI.EplOnCpp.Core
         public ProjectConverter P { get; }
         public string Name { get; }
         public string RefId { get; }
-        public EocCmdInfo EocCmdInfo { get; }
+        public EocCmdInfo Info { get; }
         public bool IsClassMember { get; }
         public EocClass ClassItem { get; }
         public MethodInfo MethodItem { get; }
         public ILoggerWithContext Logger => P.Logger;
-        public MethodParameterInfo[] Parameters { get; }
-        public Dictionary<int, MethodParameterInfo> ParamIdMap { get; }
-        public Dictionary<int, LocalVariableInfo> LocalIdMap { get; }
+        public SortedDictionary<int, EocParameterInfo> ParamMap { get; }
+        public SortedDictionary<int, EocLocalVariableInfo> LocalMap { get; }
         public EocStatementBlock StatementBlock { get; set; }
+
+        private static EocCmdInfo InferEocCmdInfo(ProjectConverter P, MethodInfo rawInfo)
+        {
+            var name = P.GetUserDefinedName_SimpleCppName(rawInfo.Id);
+            string cppName;
+            if (EplSystemId.GetType(P.MethodIdToClassMap[rawInfo.Id].Id) == EplSystemId.Type_Class)
+            {
+                cppName = name;
+            }
+            else
+            {
+                cppName = $"{P.CmdNamespace}::{name}";
+            }
+            return new EocCmdInfo()
+            {
+                ReturnDataType = rawInfo.ReturnDataType == 0 ? null : EocDataTypes.Translate(P, rawInfo.ReturnDataType),
+                CppName = cppName,
+                Parameters = rawInfo.Parameters.Select((x) =>
+                {
+                    var dataType = EocDataTypes.Translate(P, x.DataType, x.ArrayParameter);
+                    return new EocParameterInfo()
+                    {
+                        ByRef = x.ByRef || x.ArrayParameter || !EocDataTypes.IsValueType(dataType),
+                        Optional = x.OptionalParameter,
+                        VarArgs = false,
+                        DataType = dataType,
+                        CppName = P.GetUserDefinedName_SimpleCppName(x.Id)
+                    };
+                }).ToList()
+            };
+        }
 
         public CodeConverter(ProjectConverter projectConverter, EocClass classItem, MethodInfo methodItem)
         {
             this.P = projectConverter;
             this.Name = P.GetUserDefinedName_SimpleCppName(methodItem.Id);
-            this.EocCmdInfo = P.GetEocCmdInfo(methodItem);
+            this.Info = InferEocCmdInfo(P, methodItem);
             this.IsClassMember = classItem is EocObjectClass;
             this.ClassItem = classItem;
             this.MethodItem = methodItem;
-            this.Parameters = methodItem.Parameters;
-            this.ParamIdMap = methodItem.Parameters.ToDictionary(x => x.Id);
-            this.LocalIdMap = methodItem.Variables.ToDictionary(x => x.Id);
-            if(IsClassMember)
-                this.RefId = $"{ClassItem.CppName}|{EocCmdInfo.CppName}";
+            this.ParamMap = new SortedDictionary<int, EocParameterInfo>();
+            for (int i = 0; i < Info.Parameters.Count; i++)
+            {
+                this.ParamMap.Add(methodItem.Parameters[i].Id, Info.Parameters[i]);
+            }
+            this.LocalMap = methodItem.Variables.ToSortedDictionary(x => x.Id, x => new EocLocalVariableInfo()
+            {
+                CppName = P.GetUserDefinedName_SimpleCppName(x.Id),
+                DataType = EocDataTypes.Translate(P, x.DataType, x.UBound),
+                UBound = x.UBound.ToList()
+            });
+            if (IsClassMember)
+            {
+                this.RefId = $"{ClassItem.CppName}|{Info.CppName}";
+            }
             else
-                this.RefId = EocCmdInfo.CppName;
+            {
+                this.RefId = Info.CppName;
+            }
         }
 
         public void RemoveUnusedCode(HashSet<string> dependencies)
@@ -70,44 +113,43 @@ namespace QIQI.EplOnCpp.Core
 
         private void WriteOptionalParameterReader(CodeWriter writer)
         {
-            foreach (var x in Parameters.Where(x => x.OptionalParameter))
+            foreach (var x in Info.Parameters.Where(x => x.Optional))
             {
-                var name = P.GetUserDefinedName_SimpleCppName(x.Id);
-                var realValueType = P.GetCppTypeName(x.DataType, x.ArrayParameter);
-                var nullParameter = P.GetNullParameter(x.DataType, x.ArrayParameter);
-                var initValue = P.GetInitValue(x.DataType, x.ArrayParameter);
+                var name = x.CppName;
+                var nullParameter = EocDataTypes.GetNullParameter(x.DataType);
+                var initValue = EocDataTypes.GetInitValue(x.DataType);
                 writer.NewLine();
                 writer.Write($"bool eoc_isNull_{name} = !{name}.has_value();");
-                if (x.ByRef || x.ArrayParameter || !P.IsValueType(x.DataType))
+                if (x.ByRef)
                 {
                     writer.NewLine();
                     if (string.IsNullOrWhiteSpace(nullParameter))
                     {
-                        writer.Write($"{realValueType} eoc_default_{name};");
+                        writer.Write($"{x.DataType} eoc_default_{name};");
                     }
                     else
                     {
-                        writer.Write($"{realValueType} eoc_default_{name}({nullParameter});");
+                        writer.Write($"{x.DataType} eoc_default_{name}({nullParameter});");
                     }
 
                     writer.NewLine();
-                    writer.Write($"{realValueType}& eoc_value_{name} = eoc_isNull_{name} ? (eoc_default_{name} = {initValue}) : {name}.value().get();");
+                    writer.Write($"{x.DataType}& eoc_value_{name} = eoc_isNull_{name} ? (eoc_default_{name} = {initValue}) : {name}.value().get();");
                 }
                 else
                 {
                     writer.NewLine();
-                    writer.Write($"{realValueType} eoc_value_{name} = eoc_isNull_{name} ? {initValue} : {name}.value();");
+                    writer.Write($"{x.DataType} eoc_value_{name} = eoc_isNull_{name} ? {initValue} : {name}.value();");
                 }
             }
         }
 
         public void AnalyzeDependencies(AdjacencyGraph<string, IEdge<string>> graph)
         {
-            P.AnalyzeDependencies(graph, EocCmdInfo, RefId);
-            foreach (var x in MethodItem.Variables)
+            P.AnalyzeDependencies(graph, Info, RefId);
+            foreach (var x in LocalMap.Values)
             {
-                var varRefId = $"{RefId}|{P.GetUserDefinedName_SimpleCppName(x.Id)}";
-                P.AnalyzeDependencies(graph, varRefId, P.GetCppTypeName(x));
+                var varRefId = $"{RefId}|{x.CppName}";
+                P.AnalyzeDependencies(graph, varRefId, x.DataType);
             }
             StatementBlock.AnalyzeDependencies(graph);
         }
@@ -130,7 +172,7 @@ namespace QIQI.EplOnCpp.Core
                 writer.Write(accessModifier);
                 writer.Write(":");
             }
-            P.DefineMethod(writer, EocCmdInfo, Name, isVirtual);
+            P.DefineMethod(writer, Info, Name, isVirtual);
         }
 
         internal void ImplementItem(CodeWriter writer)
@@ -142,10 +184,10 @@ namespace QIQI.EplOnCpp.Core
                 string classRawName = null;
                 if (ClassItem is EocObjectClass x)
                     classRawName = x.RawName;
-                P.WriteMethodHeader(writer, EocCmdInfo, Name, false, classRawName, false);
+                P.WriteMethodHeader(writer, Info, Name, false, classRawName, false);
                 using (writer.NewBlock())
                 {
-                    P.DefineVariable(writer, null, MethodItem.Variables);
+                    P.DefineVariable(writer, null, LocalMap.Values);
                     WriteOptionalParameterReader(writer);
                     StatementBlock.WriteTo(writer);
                 }

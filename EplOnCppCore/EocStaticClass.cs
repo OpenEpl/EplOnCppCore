@@ -1,4 +1,5 @@
-﻿using QIQI.EProjectFile;
+﻿using QIQI.EplOnCpp.Core.Utils;
+using QIQI.EProjectFile;
 using QuickGraph;
 using System.Collections.Generic;
 using System.Linq;
@@ -9,6 +10,13 @@ namespace QIQI.EplOnCpp.Core
     {
         public EocStaticClass(ProjectConverter p, ClassInfo rawInfo) : base(p, rawInfo)
         {
+            MemberInfoMap = RawInfo.Variables.ToSortedDictionary(x => x.Id, x => new EocMemberInfo()
+            {
+                CppName = $"{this.CppName}::{P.GetUserDefinedName_SimpleCppName(x.Id)}",
+                DataType = EocDataTypes.Translate(P, x.DataType, x.UBound),
+                UBound = x.UBound.ToList(),
+                Static = true
+            });
         }
 
         public void Define(CodeWriter writer)
@@ -18,7 +26,7 @@ namespace QIQI.EplOnCpp.Core
             writer.Write("#include \"../type.h\"");
             using (writer.NewNamespace(P.CmdNamespace))
             {
-                foreach (var item in Method)
+                foreach (var item in Method.Values)
                 {
                     item.DefineItem(writer);
                 }
@@ -27,12 +35,12 @@ namespace QIQI.EplOnCpp.Core
 
         public override void AnalyzeDependencies(AdjacencyGraph<string, IEdge<string>> graph)
         {
-            foreach (var x in RawInfo.Variables)
+            foreach (var x in MemberInfoMap.Values)
             {
-                var varRefId = $"{RefId}::{P.GetUserDefinedName_SimpleCppName(x.Id)}";
-                P.AnalyzeDependencies(graph, varRefId, P.GetCppTypeName(x));
+                var varRefId = x.CppName;
+                P.AnalyzeDependencies(graph, varRefId, x.DataType);
             }
-            foreach (var x in Method)
+            foreach (var x in Method.Values)
             {
                 x.AnalyzeDependencies(graph);
             }
@@ -40,13 +48,9 @@ namespace QIQI.EplOnCpp.Core
 
         public override void RemoveUnusedCode(HashSet<string> dependencies)
         {
-            RawInfo.Variables = RawInfo.Variables.Where(x => dependencies.Contains($"{RefId}::{P.GetUserDefinedName_SimpleCppName(x.Id)}")).ToArray();
-            for (int i = Method.Count - 1; i >= 0; i--)
-            {
-                if (!dependencies.Contains(Method[i].RefId))
-                    Method.RemoveAt(i);
-            }
-            foreach (var item in Method)
+            MemberInfoMap = MemberInfoMap.FilterSortedDictionary(x => dependencies.Contains(x.Value.CppName));
+            Method = Method.FilterSortedDictionary(x => dependencies.Contains(x.Value.RefId));
+            foreach (var item in Method.Values)
             {
                 item.RemoveUnusedCode(dependencies);
             }
@@ -57,23 +61,23 @@ namespace QIQI.EplOnCpp.Core
             writer.Write("#include \"../../../stdafx.h\"");
             using (writer.NewNamespace(P.CmdNamespace))
             {
-                if (RawInfo.Variables.Length > 0)
+                if (MemberInfoMap.Count > 0)
                 {
                     using (writer.NewNamespace(Name))
                     {
-                        P.DefineVariable(writer, new string[] { "static" }, RawInfo.Variables);
+                        P.DefineVariable(writer, new string[] { "static" }, MemberInfoMap.Values);
                     }
                 }
-                foreach (var item in Method)
+                foreach (var item in Method.Values)
                 {
                     item.ImplementItem(writer);
                 }
             }
         }
 
-        public static EocStaticClass[] Translate(ProjectConverter P, IEnumerable<ClassInfo> rawInfo)
+        public static SortedDictionary<int, EocStaticClass> Translate(ProjectConverter P, IEnumerable<ClassInfo> rawInfos)
         {
-            return rawInfo.Select(x => Translate(P, x)).ToArray();
+            return rawInfos.ToSortedDictionary(x => x.Id, x => Translate(P, x));
         }
 
         public static EocStaticClass Translate(ProjectConverter P, ClassInfo rawInfo)

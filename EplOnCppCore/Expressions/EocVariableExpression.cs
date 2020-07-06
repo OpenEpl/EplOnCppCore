@@ -13,19 +13,19 @@ namespace QIQI.EplOnCpp.Core.Expressions
             switch (EplSystemId.GetType(expr.Id))
             {
                 case EplSystemId.Type_Local:
-                    if (C.ParamIdMap.TryGetValue(expr.Id, out var parameterInfo))
+                    if (C.ParamMap.TryGetValue(expr.Id, out var parameterInfo))
                     {
                         return new EocVariableExpression(C, parameterInfo);
                     }
-                    var localVarInfo = C.LocalIdMap[expr.Id];
+                    var localVarInfo = C.LocalMap[expr.Id];
                     return new EocVariableExpression(C, localVarInfo);
 
                 case EplSystemId.Type_ClassMember:
-                    var classVar = C.P.ClassVarIdMap[expr.Id];
+                    var classVar = C.P.EocMemberMap[expr.Id];
                     return new EocVariableExpression(C, classVar);
 
                 case EplSystemId.Type_Global:
-                    var globalVar = C.P.GlobalVarIdMap[expr.Id];
+                    var globalVar = C.P.EocGlobalVariableMap[expr.Id].Info;
                     return new EocVariableExpression(C, globalVar);
 
                 case int x:
@@ -33,91 +33,55 @@ namespace QIQI.EplOnCpp.Core.Expressions
             }
         }
 
-        public EocVariableExpression(CodeConverter c, AbstractVariableInfo variableInfo) : base(c)
+        public EocVariableExpression(CodeConverter c, EocVariableInfo variableInfo) : base(c)
         {
             VariableInfo = variableInfo;
         }
 
-        public AbstractVariableInfo VariableInfo { get; }
+        public EocVariableInfo VariableInfo { get; }
 
         public override CppTypeName GetResultType()
         {
-            return P.GetCppTypeName(VariableInfo);
+            return VariableInfo.DataType;
         }
 
         public override void WriteTo(CodeWriter writer)
         {
-            var name = P.GetUserDefinedName_SimpleCppName(VariableInfo.Id);
             switch (VariableInfo)
             {
-                case MethodParameterInfo v:
-                    if (v.OptionalParameter)
-                    {
-                        writer.Write("eoc_value_");
-                    }
-                    writer.Write(name);
-                    break;
-
-                case LocalVariableInfo v:
-                    writer.Write(name);
-                    break;
-
-                case ClassVariableInfo v:
+                case EocMemberInfo x when !x.Static:
                     if (C.IsClassMember)
                     {
                         writer.Write("this->");
                     }
-                    else
-                    {
-                        writer.Write(C.ClassItem.CppName);
-                        writer.Write("::");
-                    }
-                    writer.Write(name);
                     break;
-
-                case GlobalVariableInfo v:
-                    writer.Write(P.GlobalNamespace);
-                    writer.Write("::");
-                    writer.Write(name);
+                case EocParameterInfo x when x.Optional:
+                    writer.Write("eoc_value_");
                     break;
-
                 default:
-                    throw new Exception("未知变量访问：" + P.IdToNameMap.GetUserDefinedName(VariableInfo.Id));
+                    break;
             }
+            writer.Write(VariableInfo.CppName);
         }
 
         public override void AnalyzeDependencies(AdjacencyGraph<string, IEdge<string>> graph)
         {
             base.AnalyzeDependencies(graph);
             string varRefId;
-            var name = P.GetUserDefinedName_SimpleCppName(VariableInfo.Id);
             switch (VariableInfo)
             {
-                case MethodParameterInfo _:
-                    varRefId = $"{C.RefId}|{name}";
+                case EocMemberInfo x when !x.Static:
+                    varRefId = $"{C.ClassItem.RefId}|{x.CppName}";
                     break;
-
-                case LocalVariableInfo _:
-                    varRefId = $"{C.RefId}|{name}";
+                case EocParameterInfo x:
+                    varRefId = $"{C.RefId}|{x.CppName}";
                     break;
-
-                case ClassVariableInfo _:
-                    if (C.IsClassMember)
-                    {
-                        varRefId = $"{C.ClassItem.CppName}|{name}";
-                    }
-                    else
-                    {
-                        varRefId = $"{C.ClassItem.CppName}::{name}";
-                    }
+                case EocLocalVariableInfo x:
+                    varRefId = $"{C.RefId}|{x.CppName}";
                     break;
-
-                case GlobalVariableInfo _:
-                    varRefId = $"{P.GlobalNamespace}::{name}";
-                    break;
-
                 default:
-                    throw new Exception("未知变量访问：" + P.IdToNameMap.GetUserDefinedName(VariableInfo.Id));
+                    varRefId = VariableInfo.CppName;
+                    break;
             }
             graph.AddVerticesAndEdge(new Edge<string>(C.RefId, varRefId));
         }

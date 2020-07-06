@@ -1,4 +1,5 @@
-﻿using QIQI.EProjectFile;
+﻿using QIQI.EplOnCpp.Core.Utils;
+using QIQI.EProjectFile;
 using QIQI.EProjectFile.Expressions;
 using QIQI.EProjectFile.LibInfo;
 using QuickGraph;
@@ -12,66 +13,6 @@ namespace QIQI.EplOnCpp.Core
 {
     public class ProjectConverter
     {
-        public readonly static CppTypeName CppTypeName_Bin = new CppTypeName(false, "e::system::bin");
-        public readonly static CppTypeName CppTypeName_Bool = new CppTypeName(false, "bool");
-        public readonly static CppTypeName CppTypeName_Byte = new CppTypeName(false, "uint8_t");
-        public readonly static CppTypeName CppTypeName_DateTime = new CppTypeName(false, "e::system::datetime");
-        public readonly static CppTypeName CppTypeName_Double = new CppTypeName(false, "double");
-        public readonly static CppTypeName CppTypeName_Float = new CppTypeName(false, "float");
-        public readonly static CppTypeName CppTypeName_Int = new CppTypeName(false, "int32_t");
-        public readonly static CppTypeName CppTypeName_Long = new CppTypeName(false, "int64_t");
-        public readonly static CppTypeName CppTypeName_Short = new CppTypeName(false, "int16_t");
-        public readonly static CppTypeName CppTypeName_IntPtr = new CppTypeName(false, "intptr_t");
-        public readonly static CppTypeName CppTypeName_MethodPtr = new CppTypeName(false, "e::system::methodptr");
-        public readonly static CppTypeName CppTypeName_String = new CppTypeName(false, "e::system::string");
-        public readonly static CppTypeName CppTypeName_Any = new CppTypeName(false, "e::system::any");
-        public readonly static CppTypeName CppTypeName_SkipCheck = CppTypeName.Parse("*");
-
-        public static readonly Dictionary<Type, CppTypeName> ConstTypeMap = new Dictionary<Type, CppTypeName>()
-        {
-            { typeof(byte), CppTypeName_Byte },
-            { typeof(short), CppTypeName_Short },
-            { typeof(int), CppTypeName_Int },
-            { typeof(long), CppTypeName_Long },
-            { typeof(float), CppTypeName_Float },
-            { typeof(double), CppTypeName_Double },
-            { typeof(IntPtr), CppTypeName_IntPtr },
-            { typeof(DateTime), CppTypeName_DateTime },
-            { typeof(string), CppTypeName_String },
-            { typeof(bool), CppTypeName_Bool }
-        };
-
-        internal static CppTypeName GetConstValueType(object value)
-        {
-            var type = value.GetType();
-            var isArray = type.IsArray;
-            while (type.IsArray)
-            {
-                type = type.GetElementType();
-            }
-
-            return isArray
-                ? new CppTypeName(false, "e::system::array", new[] { ConstTypeMap[type] })
-                : ConstTypeMap[type];
-        }
-
-        public static readonly Dictionary<int, CppTypeName> BasicCppTypeNameMap = new Dictionary<int, CppTypeName> {
-            { EplSystemId.DataType_Bin , CppTypeName_Bin },
-            { EplSystemId.DataType_Bool , CppTypeName_Bool },
-            { EplSystemId.DataType_Byte , CppTypeName_Byte },
-            { EplSystemId.DataType_DateTime , CppTypeName_DateTime },
-            { EplSystemId.DataType_Double , CppTypeName_Double },
-            { EplSystemId.DataType_Float , CppTypeName_Float },
-            { EplSystemId.DataType_Int , CppTypeName_Int },
-            { EplSystemId.DataType_Long , CppTypeName_Long },
-            { EplSystemId.DataType_Short , CppTypeName_Short },
-            { EplSystemId.DataType_MethodPtr , CppTypeName_MethodPtr },
-            { EplSystemId.DataType_String , CppTypeName_String },
-            { EplSystemId.DataType_Any , CppTypeName_Any }
-        };
-
-        public static readonly CppTypeName EocErrorType = new CppTypeName(false, "EOC_ERROR_TYPE");
-
         /// <summary>
         /// 使用<code>new ProjectConverter(...).Generate(...)</code>替代
         /// </summary>
@@ -90,21 +31,17 @@ namespace QIQI.EplOnCpp.Core
         public int EocHelperLibId { get; }
         public int DataTypeId_IntPtr { get; }
         public EocProjectType ProjectType { get; }
-        public EocConstant[] EocConstants { get; set; }
-        public EocStruct[] EocStructs { get; set; }
-        public EocGlobalVariable[] EocGlobalVariables { get; set; }
-        public EocDll[] EocDllDeclares { get; set; }
-        public EocObjectClass[] EocObjectClasses { get; set; }
-        public EocStaticClass[] EocStaticClasses { get; set; }
-        public EocDllExport[] EocDllExports { get; set; }
+        public SortedDictionary<int, EocConstant> EocConstantMap { get; set; }
+        public SortedDictionary<int, EocStruct> EocStructMap { get; set; }
+        public SortedDictionary<int, EocGlobalVariable> EocGlobalVariableMap { get; set; }
+        public SortedDictionary<int, EocDll> EocDllDeclareMap { get; set; }
+        public SortedDictionary<int, EocObjectClass> EocObjectClassMap { get; set; }
+        public SortedDictionary<int, EocStaticClass> EocStaticClassMap { get; set; }
+        public SortedDictionary<int, EocDllExport> EocDllExportMap { get; set; }
+        public SortedDictionary<int, EocMemberInfo> EocMemberMap { get; set; }
+        public SortedDictionary<int, CodeConverter> EocMethodMap { get; set; }
         public IdToNameMap IdToNameMap { get; }
-        public Dictionary<int, ClassInfo> ClassIdMap { get; }
         public Dictionary<int, MethodInfo> MethodIdMap { get; }
-        public Dictionary<int, DllDeclareInfo> DllIdMap { get; }
-        public Dictionary<int, StructInfo> StructIdMap { get; }
-        public Dictionary<int, GlobalVariableInfo> GlobalVarIdMap { get; }
-        public Dictionary<int, ConstantInfo> ConstantIdMap { get; }
-        public Dictionary<int, ClassVariableInfo> ClassVarIdMap { get; }
 
         //MethodInfo.Class 似乎并不可靠
         public Dictionary<int, ClassInfo> MethodIdToClassMap { get; }
@@ -139,19 +76,12 @@ namespace QIQI.EplOnCpp.Core
             }
 
             this.IdToNameMap = new IdToNameMap(source.Code, source.Resource, source.LosableSection);
-            this.ClassIdMap = source.Code.Classes.ToDictionary(x => x.Id);
             this.MethodIdMap = source.Code.Methods.ToDictionary(x => x.Id);
-            this.DllIdMap = source.Code.DllDeclares.ToDictionary(x => x.Id);
-            this.StructIdMap = source.Code.Structs.ToDictionary(x => x.Id);
-            this.GlobalVarIdMap = source.Code.GlobalVariables.ToDictionary(x => x.Id);
-            this.ConstantIdMap = source.Resource.Constants.ToDictionary(x => x.Id);
 
-            this.ClassVarIdMap = new Dictionary<int, ClassVariableInfo>();
             this.MethodIdToClassMap = new Dictionary<int, ClassInfo>();
             foreach (var item in source.Code.Classes)
             {
                 Array.ForEach(item.Method, x => MethodIdToClassMap.Add(x, item));
-                Array.ForEach(item.Variables, x => ClassVarIdMap.Add(x.Id, x));
             }
 
             projectNamespace = projectNamespace ?? "e::user";
@@ -192,15 +122,28 @@ namespace QIQI.EplOnCpp.Core
             this.DataTypeId_IntPtr = this.EocHelperLibId == -1 ? -1 : EplSystemId.MakeLibDataTypeId((short)this.EocHelperLibId, 0);
             this.ProjectType = projectType;
 
-            this.EocConstants = EocConstant.Translate(this, Source.Resource.Constants);
-            this.EocStructs = EocStruct.Translate(this, Source.Code.Structs);
-            this.EocGlobalVariables = EocGlobalVariable.Translate(this, Source.Code.GlobalVariables);
-            this.EocDllDeclares = EocDll.Translate(this, Source.Code.DllDeclares);
-            this.EocObjectClasses = EocObjectClass.Translate(this, Source.Code.Classes.Where(x => EplSystemId.GetType(x.Id) == EplSystemId.Type_Class));
-            this.EocStaticClasses = EocStaticClass.Translate(this, Source.Code.Classes.Where(x => EplSystemId.GetType(x.Id) != EplSystemId.Type_Class));
+            this.EocConstantMap = EocConstant.Translate(this, Source.Resource.Constants);
+            this.EocStructMap = EocStruct.Translate(this, Source.Code.Structs);
+            this.EocGlobalVariableMap = EocGlobalVariable.Translate(this, Source.Code.GlobalVariables);
+            this.EocDllDeclareMap = EocDll.Translate(this, Source.Code.DllDeclares);
+            this.EocObjectClassMap = EocObjectClass.Translate(this, Source.Code.Classes.Where(x => EplSystemId.GetType(x.Id) == EplSystemId.Type_Class));
+            this.EocStaticClassMap = EocStaticClass.Translate(this, Source.Code.Classes.Where(x => EplSystemId.GetType(x.Id) != EplSystemId.Type_Class));
+
+
+            this.EocMemberMap =
+                this.EocObjectClassMap.Values.SelectMany(x => x.MemberInfoMap)
+                .Concat(this.EocStaticClassMap.Values.SelectMany(x => x.MemberInfoMap))
+                .Concat(this.EocStructMap.Values.SelectMany(x => x.MemberInfoMap))
+                .ToSortedDictionary();
+
+            this.EocMethodMap =
+                this.EocObjectClassMap.Values.SelectMany(x => x.Method)
+                .Concat(this.EocStaticClassMap.Values.SelectMany(x => x.Method))
+                .ToSortedDictionary();
+
             if (ProjectType == EocProjectType.Dll)
             {
-                this.EocDllExports = EocDllExport.Translate(this, Source.Code.Methods.Where(x => x.IsStatic && x.Public));
+                this.EocDllExportMap = EocDllExport.Translate(this, Source.Code.Methods.Where(x => x.IsStatic && x.Public).Select(x => x.Id));
             }
         }
 
@@ -220,28 +163,55 @@ namespace QIQI.EplOnCpp.Core
             Directory.CreateDirectory(dest);
             this.SourceFiles = new List<string>();
 
-            foreach (var eocObjectClass in EocObjectClasses)
+            foreach (var eocObjectClass in EocObjectClassMap.Values)
             {
                 eocObjectClass.ParseCode();
-                eocObjectClass.Optimize();
             }
-
-            foreach (var eocStaticClass in EocStaticClasses)
+            foreach (var eocStaticClass in EocStaticClassMap.Values)
             {
                 eocStaticClass.ParseCode();
+            }
+
+            foreach (var eocObjectClass in EocObjectClassMap.Values)
+            {
+                eocObjectClass.Optimize();
+            }
+            foreach (var eocStaticClass in EocStaticClassMap.Values)
+            {
                 eocStaticClass.Optimize();
             }
 
             //分析依赖图
-            Array.ForEach(EocConstants, x => x.AnalyzeDependencies(DependencyGraph));
-            Array.ForEach(EocStructs, x => x.AnalyzeDependencies(DependencyGraph));
-            Array.ForEach(EocGlobalVariables, x => x.AnalyzeDependencies(DependencyGraph));
-            Array.ForEach(EocDllDeclares, x => x.AnalyzeDependencies(DependencyGraph));
-            Array.ForEach(EocObjectClasses, x => x.AnalyzeDependencies(DependencyGraph));
-            Array.ForEach(EocStaticClasses, x => x.AnalyzeDependencies(DependencyGraph));
-            if (EocDllExports != null)
+            foreach (var x in EocConstantMap.Values)
             {
-                Array.ForEach(EocDllExports, x => x.AnalyzeDependencies(DependencyGraph));
+                x.AnalyzeDependencies(DependencyGraph);
+            }
+            foreach (var x in EocStructMap.Values)
+            {
+                x.AnalyzeDependencies(DependencyGraph);
+            }
+            foreach (var x in EocGlobalVariableMap.Values)
+            {
+                x.AnalyzeDependencies(DependencyGraph);
+            }
+            foreach (var x in EocDllDeclareMap.Values)
+            {
+                x.AnalyzeDependencies(DependencyGraph);
+            }
+            foreach (var x in EocObjectClassMap.Values)
+            {
+                x.AnalyzeDependencies(DependencyGraph);
+            }
+            foreach (var x in EocStaticClassMap.Values)
+            {
+                x.AnalyzeDependencies(DependencyGraph);
+            }
+            if (EocDllExportMap != null)
+            {
+                foreach (var x in EocDllExportMap.Values)
+                {
+                    x.AnalyzeDependencies(DependencyGraph);
+                }
             }
             if (Source.InitEcSectionInfo != null)
             {
@@ -261,14 +231,14 @@ namespace QIQI.EplOnCpp.Core
             GraphUtils.AnalyzeDependencies(DependencyGraph, "[Root]", this.Dependencies);
 
             //删除未使用代码
-            EocConstants = EocConstants.Where(x => Dependencies.Contains(x.RefId)).ToArray();
-            EocStructs = EocStructs.Where(x => Dependencies.Contains(x.RefId)).ToArray();
-            EocGlobalVariables = EocGlobalVariables.Where(x => Dependencies.Contains(x.RefId)).ToArray();
-            EocDllDeclares = EocDllDeclares.Where(x => Dependencies.Contains(x.RefId)).ToArray();
-            EocObjectClasses = EocObjectClasses.Where(x => Dependencies.Contains(x.RefId)).ToArray();
-            Array.ForEach(EocObjectClasses, x => x.RemoveUnusedCode(Dependencies));
-            Array.ForEach(EocStaticClasses, x => x.RemoveUnusedCode(Dependencies));
-            EocStaticClasses = EocStaticClasses.Where(x => x.Method.Count != 0).ToArray();
+            EocConstantMap = EocConstantMap.FilterSortedDictionary(x => Dependencies.Contains(x.Value.RefId));
+            EocStructMap = EocStructMap.FilterSortedDictionary(x => Dependencies.Contains(x.Value.RefId));
+            EocGlobalVariableMap = EocGlobalVariableMap.FilterSortedDictionary(x => Dependencies.Contains(x.Value.RefId));
+            EocDllDeclareMap = EocDllDeclareMap.FilterSortedDictionary(x => Dependencies.Contains(x.Value.RefId));
+            EocObjectClassMap = EocObjectClassMap.FilterSortedDictionary(x => Dependencies.Contains(x.Value.RefId));
+            foreach (var x in EocObjectClassMap.Values) { x.RemoveUnusedCode(Dependencies); }
+            foreach (var x in EocStaticClassMap.Values) { x.RemoveUnusedCode(Dependencies); }
+            EocStaticClassMap = EocStaticClassMap.FilterSortedDictionary(x => x.Value.Method.Count != 0);
 
             //依赖信息
             File.WriteAllText(Path.Combine(dest, "Dependencies.txt"), string.Join("\r\n", this.Dependencies), Encoding.UTF8);
@@ -278,9 +248,9 @@ namespace QIQI.EplOnCpp.Core
 
             //常量
             using (var writer = NewCodeFileByCppName(dest, ConstantNamespace, "h"))
-                EocConstant.Define(this, writer, EocConstants);
+                EocConstant.Define(this, writer, EocConstantMap);
             using (var writer = NewCodeFileByCppName(dest, ConstantNamespace, "cpp"))
-                EocConstant.Implement(this, writer, EocConstants);
+                EocConstant.Implement(this, writer, EocConstantMap);
 
             //声明自定义数据类型（结构/对象类）
             using (var writer = NewCodeFileByCppName(dest, TypeNamespace, "h"))
@@ -289,14 +259,14 @@ namespace QIQI.EplOnCpp.Core
             }
 
             //实现 对象类
-            foreach (var item in EocObjectClasses)
+            foreach (var item in EocObjectClassMap.Values)
             {
                 using (var writer = NewCodeFileByCppName(dest, item.CppName, "cpp"))
                     item.ImplementRawObjectClass(writer);
             }
 
             //静态类
-            foreach (var item in EocStaticClasses)
+            foreach (var item in EocStaticClassMap.Values)
             {
                 using (var writer = NewCodeFileByCppName(dest, item.CppName, "h"))
                     item.Define(writer);
@@ -306,15 +276,15 @@ namespace QIQI.EplOnCpp.Core
 
             //全局变量
             using (var writer = NewCodeFileByCppName(dest, GlobalNamespace, "h"))
-                EocGlobalVariable.Define(this, writer, EocGlobalVariables);
+                EocGlobalVariable.Define(this, writer, EocGlobalVariableMap);
             using (var writer = NewCodeFileByCppName(dest, GlobalNamespace, "cpp"))
-                EocGlobalVariable.Implement(this, writer, EocGlobalVariables);
+                EocGlobalVariable.Implement(this, writer, EocGlobalVariableMap);
 
             //DLL
             using (var writer = NewCodeFileByCppName(dest, DllNamespace, "h"))
-                EocDll.Define(this, writer, EocDllDeclares);
+                EocDll.Define(this, writer, EocDllDeclareMap);
             using (var writer = NewCodeFileByCppName(dest, DllNamespace, "cpp"))
-                EocDll.Implement(this, writer, EocDllDeclares);
+                EocDll.Implement(this, writer, EocDllDeclareMap);
 
             //预编译头
             using (var writer = NewCodeFileByCppName(dest, "stdafx", "h"))
@@ -325,14 +295,14 @@ namespace QIQI.EplOnCpp.Core
                 MakeProgramEntry(writer);
 
             //Dll导出
-            if (EocDllExports != null)
+            if (EocDllExportMap != null)
             {
                 using (var writer = NewCodeFileByCppName(dest, "dll_export", "cpp"))
-                    EocDllExport.Implement(this, writer, EocDllExports);
+                    EocDllExport.Implement(this, writer, EocDllExportMap);
                 fileName = Path.Combine(dest, "dll_export.def");
                 using (var writer = new StreamWriter(File.Create(fileName), Encoding.UTF8))
                 {
-                    EocDllExport.MakeDef(this, writer, EocDllExports);
+                    EocDllExport.MakeDef(this, writer, EocDllExportMap);
                 }
             }
 
@@ -361,7 +331,7 @@ namespace QIQI.EplOnCpp.Core
             writer.Write("#include \"e/user/dll.h\"");
             writer.NewLine();
             writer.Write("#include \"e/user/global.h\"");
-            foreach (var item in EocStaticClasses)
+            foreach (var item in EocStaticClassMap.Values)
             {
                 var includeName = item.CppName.Replace("::", "/") + ".h";
                 writer.NewLine();
@@ -534,20 +504,20 @@ namespace QIQI.EplOnCpp.Core
             {
                 using (writer.NewNamespace("eoc_internal"))
                 {
-                    EocStruct.DefineRawName(this, writer, EocStructs);
-                    EocObjectClass.DefineRawName(this, writer, EocObjectClasses);
+                    EocStruct.DefineRawName(this, writer, EocStructMap);
+                    EocObjectClass.DefineRawName(this, writer, EocObjectClassMap);
                 }
-                EocStruct.DefineName(this, writer, EocStructs);
-                EocObjectClass.DefineName(this, writer, EocObjectClasses);
+                EocStruct.DefineName(this, writer, EocStructMap);
+                EocObjectClass.DefineName(this, writer, EocObjectClassMap);
                 using (writer.NewNamespace("eoc_internal"))
                 {
-                    EocStruct.DefineRawStructInfo(this, writer, EocStructs);
-                    EocObjectClass.DefineRawObjectClass(this, writer, EocObjectClasses);
+                    EocStruct.DefineRawStructInfo(this, writer, EocStructMap);
+                    EocObjectClass.DefineRawObjectClass(this, writer, EocObjectClassMap);
                 }
             }
             using (writer.NewNamespace("e::system"))
             {
-                EocStruct.DefineStructMarshaler(this, writer, EocStructs);
+                EocStruct.DefineStructMarshaler(this, writer, EocStructMap);
             }
         }
 
@@ -584,13 +554,13 @@ namespace QIQI.EplOnCpp.Core
             AnalyzeDependencies(graph, refId, info.ReturnDataType);
             foreach (var x in info.Parameters)
             {
-                var varRefId = $"{refId}|{x.Name}";
+                var varRefId = $"{refId}|{x.CppName}";
                 graph.AddVerticesAndEdge(new Edge<string>(refId, varRefId));
                 AnalyzeDependencies(graph, varRefId, x.DataType);
             }
         }
 
-        internal void InitMembersInConstructor(CodeWriter writer, IEnumerable<AbstractVariableInfo> collection)
+        internal void InitMembersInConstructor(CodeWriter writer, IEnumerable<EocVariableInfo> collection)
         {
             bool first = true;
             foreach (var item in collection)
@@ -599,15 +569,14 @@ namespace QIQI.EplOnCpp.Core
                     first = false;
                 else
                     writer.Write(", ");
-                var cppName = GetUserDefinedName_SimpleCppName(item.Id);
-                writer.Write(cppName);
+                writer.Write(item.CppName);
                 writer.Write("(");
-                writer.Write(GetInitParameter(item.DataType, item.UBound));
+                writer.Write(EocDataTypes.GetInitParameter(item.DataType, item.UBound));
                 writer.Write(")");
             }
         }
 
-        internal void DefineVariable(CodeWriter writer, string[] modifiers, AbstractVariableInfo variable, bool initAtOnce = true)
+        internal void DefineVariable(CodeWriter writer, string[] modifiers, EocVariableInfo variable, bool initAtOnce = true)
         {
             writer.NewLine();
             if (modifiers != null)
@@ -618,12 +587,12 @@ namespace QIQI.EplOnCpp.Core
                     writer.Write(" ");
                 }
             }
-            writer.Write(GetCppTypeName(variable.DataType, variable.UBound).ToString());
+            writer.Write(variable.DataType.ToString());
             writer.Write(" ");
-            writer.Write(GetUserDefinedName_SimpleCppName(variable.Id));
+            writer.Write(variable.CppName.Split(new string[] { "::" }, StringSplitOptions.None).LastOrDefault());
             if (initAtOnce)
             {
-                var initParameter = GetInitParameter(variable.DataType, variable.UBound);
+                var initParameter = EocDataTypes.GetInitParameter(variable.DataType, variable.UBound);
                 if (!string.IsNullOrWhiteSpace(initParameter))
                 {
                     writer.Write("(");
@@ -634,7 +603,7 @@ namespace QIQI.EplOnCpp.Core
             writer.Write(";");
         }
 
-        internal void DefineVariable(CodeWriter writer, string[] modifiers, IEnumerable<AbstractVariableInfo> collection, bool initAtOnce = true)
+        internal void DefineVariable(CodeWriter writer, string[] modifiers, IEnumerable<EocVariableInfo> collection, bool initAtOnce = true)
         {
             foreach (var item in collection)
             {
@@ -653,7 +622,7 @@ namespace QIQI.EplOnCpp.Core
             string[] result = new string[infos.Count];
             for (int i = 0; i < infos.Count; i++)
             {
-                result[i] = infos[i].Name ?? $"_AnonymousParameter{i + 1}";
+                result[i] = infos[i].CppName ?? $"_AnonymousParameter{i + 1}";
             }
             return result;
         }
@@ -765,17 +734,7 @@ namespace QIQI.EplOnCpp.Core
 
         public EocMemberInfo GetEocMemberInfo(int structId, int id)
         {
-            var cppName = GetUserDefinedName_SimpleCppName(id);
-
-            var structInfo = StructIdMap[structId];
-            var memberInfo = Array.Find(structInfo.Member, x => x.Id == id);
-            var dataType = GetCppTypeName(memberInfo.DataType, memberInfo.UBound);
-
-            return new EocMemberInfo()
-            {
-                CppName = cppName,
-                DataType = dataType
-            };
+            return EocMemberMap[id];
         }
 
         public EocConstantInfo GetEocConstantInfo(EmnuConstantExpression expr)
@@ -796,7 +755,7 @@ namespace QIQI.EplOnCpp.Core
                 if (result.Value is long longValue)
                     if ((int)longValue == longValue)
                         result.Value = (int)longValue;
-                result.DataType = GetConstValueType(result.Value);
+                result.DataType = EocDataTypes.GetConstValueType(result.Value);
             }
             return result;
         }
@@ -829,7 +788,7 @@ namespace QIQI.EplOnCpp.Core
                         if (result.Value is long longValue)
                             if ((int)longValue == longValue)
                                 result.Value = (int)longValue;
-                        result.DataType = GetConstValueType(result.Value);
+                        result.DataType = EocDataTypes.GetConstValueType(result.Value);
                     }
                     return result;
             }
@@ -837,61 +796,7 @@ namespace QIQI.EplOnCpp.Core
 
         public EocConstantInfo GetEocConstantInfo(int id)
         {
-            var cppName = ConstantNamespace + "::" + GetUserDefinedName_SimpleCppName(id);
-            string getter = null;
-            var constantInfo = ConstantIdMap[id];
-            CppTypeName dataType;
-            switch (constantInfo.Value)
-            {
-                case double v:
-                    if ((int)v == v)
-                    {
-                        dataType = CppTypeName_Int;
-                    }
-                    else if ((long)v == v)
-                    {
-                        dataType = CppTypeName_Long;
-                    }
-                    else
-                    {
-                        dataType = CppTypeName_Double;
-                    }
-                    break;
-
-                case bool _:
-                    dataType = CppTypeName_Bool;
-                    break;
-
-                case DateTime _:
-                    dataType = CppTypeName_DateTime;
-                    break;
-
-                case string _:
-                    dataType = CppTypeName_String;
-                    getter = cppName;
-                    cppName = null;
-                    break;
-
-                case byte[] _:
-                    dataType = CppTypeName_Bin;
-                    getter = cppName;
-                    cppName = null;
-                    break;
-
-                case null:
-                    return null;
-
-                default:
-                    throw new Exception();
-            }
-
-            return new EocConstantInfo()
-            {
-                CppName = cppName,
-                Getter = getter,
-                DataType = dataType,
-                Value = constantInfo.Value
-            };
+            return EocConstantMap[id].Info;
         }
 
         public EocCmdInfo GetEocCmdInfo(CallExpression expr)
@@ -939,58 +844,14 @@ namespace QIQI.EplOnCpp.Core
             switch (EplSystemId.GetType(id))
             {
                 case EplSystemId.Type_Method:
-                    return GetEocCmdInfo(MethodIdMap[id]);
+                    return EocMethodMap[id].Info;
 
                 case EplSystemId.Type_Dll:
-                    return GetEocCmdInfo(DllIdMap[id]);
+                    return EocDllDeclareMap[id].Info;
 
                 default:
                     throw new Exception();
             }
-        }
-
-        public EocCmdInfo GetEocCmdInfo(DllDeclareInfo x)
-        {
-            return new EocCmdInfo()
-            {
-                ReturnDataType = x.ReturnDataType == 0 ? null : GetCppTypeName(x.ReturnDataType),
-                CppName = GetCppMethodName(x.Id),
-                Parameters = x.Parameters.Select(GetEocParameterInfo).ToList()
-            };
-        }
-
-        public EocCmdInfo GetEocCmdInfo(MethodInfo x)
-        {
-            return new EocCmdInfo()
-            {
-                ReturnDataType = x.ReturnDataType == 0 ? null : GetCppTypeName(x.ReturnDataType),
-                CppName = GetCppMethodName(x.Id),
-                Parameters = x.Parameters.Select(GetEocParameterInfo).ToList()
-            };
-        }
-
-        public EocParameterInfo GetEocParameterInfo(MethodParameterInfo x)
-        {
-            return new EocParameterInfo()
-            {
-                ByRef = x.ByRef || x.ArrayParameter || !IsValueType(x.DataType),
-                Optional = x.OptionalParameter,
-                VarArgs = false,
-                DataType = GetCppTypeName(x.DataType, x.ArrayParameter),
-                Name = GetUserDefinedName_SimpleCppName(x.Id)
-            };
-        }
-
-        public EocParameterInfo GetEocParameterInfo(DllParameterInfo x)
-        {
-            return new EocParameterInfo()
-            {
-                ByRef = x.ByRef || x.ArrayParameter || !IsValueType(x.DataType),
-                Optional = false,
-                VarArgs = false,
-                DataType = GetCppTypeName(x.DataType, x.ArrayParameter),
-                Name = GetUserDefinedName_SimpleCppName(x.Id)
-            };
         }
 
         public string GetParameterTypeString(EocParameterInfo x)
@@ -1011,364 +872,5 @@ namespace QIQI.EplOnCpp.Core
         }
 
         #endregion MethodInfoHelper
-
-        #region TypeInfoHelper
-
-        public CppTypeName GetCppTypeName(AbstractVariableInfo x)
-        {
-            if (x is MethodParameterInfo parameterInfo)
-                return GetCppTypeName(parameterInfo.DataType, parameterInfo.ArrayParameter);
-            return GetCppTypeName(x.DataType, x.UBound);
-        }
-
-        public CppTypeName GetCppTypeName(int id, int[] uBound)
-        {
-            return GetCppTypeName(id, uBound != null && uBound.Length != 0);
-        }
-
-        public CppTypeName GetCppTypeName(int id, bool isArray = false)
-        {
-            id = TranslateDataTypeId(id);
-            if (id == DataTypeId_IntPtr)
-            {
-                return CppTypeName_IntPtr;
-            }
-            if (!BasicCppTypeNameMap.TryGetValue(id, out var result))
-            {
-                if (EplSystemId.GetType(id) == EplSystemId.Type_Class
-                    || EplSystemId.GetType(id) == EplSystemId.Type_Struct)
-                {
-                    result = new CppTypeName(false, TypeNamespace + "::" + GetUserDefinedName_SimpleCppName(id));
-                }
-                else
-                {
-                    EplSystemId.DecomposeLibDataTypeId(id, out var libId, out var typeId);
-
-                    if (Libs[libId] == null)
-                    {
-                        return EocErrorType;
-                    }
-                    if (typeId >= Libs[libId].DataType.Length)
-                    {
-                        return EocErrorType;
-                    }
-                    var name = Libs[libId].DataType[typeId].Name;
-                    if (EocLibs[libId] == null)
-                    {
-                        return EocErrorType;
-                    }
-                    if (!EocLibs[libId].Type.ContainsKey(name))
-                    {
-                        return EocErrorType;
-                    }
-                    result = EocLibs[libId].Type[name].CppName;
-                }
-            }
-            if (isArray)
-                result = new CppTypeName(false, "e::system::array", new[] { result });
-            return result;
-        }
-
-        public int TranslateDataTypeId(int dataType)
-        {
-            if (dataType == 0)
-                return EplSystemId.DataType_Int;
-            if (EplSystemId.IsLibDataType(dataType) && dataType != DataTypeId_IntPtr)
-            {
-                EplSystemId.DecomposeLibDataTypeId(dataType, out var libId, out var typeId);
-                try
-                {
-                    if (Libs[libId].DataType[typeId].IsEnum)
-                        return EplSystemId.DataType_Int;
-                }
-                catch (Exception)
-                {
-                }
-                try
-                {
-                    if (EocLibs[libId].Enum.ContainsKey(Libs[libId].DataType[typeId].Name))
-                        return EplSystemId.DataType_Int;
-                }
-                catch (Exception)
-                {
-                }
-            }
-            return dataType;
-        }
-
-        /// <summary>
-        /// 不保证与字节数相等，只保证数值大的类型大
-        /// </summary>
-        /// <param name="dataType"></param>
-        /// <returns></returns>
-        public int GetIntNumberTypeSize(CppTypeName dataType)
-        {
-            if (dataType == CppTypeName_Byte)
-            {
-                return 1;
-            }
-            else if (dataType == CppTypeName_Short)
-            {
-                return 2;
-            }
-            else if (dataType == CppTypeName_Int)
-            {
-                return 4;
-            }
-            else if (dataType == CppTypeName_Long)
-            {
-                return 8;
-            }
-            else
-            {
-                throw new ArgumentException();
-            }
-        }
-
-        /// <summary>
-        /// 不保证与字节数相等，只保证数值大的类型大
-        /// </summary>
-        /// <param name="dataType"></param>
-        /// <returns></returns>
-        public int GetIntNumberTypeSize(int dataType)
-        {
-            dataType = TranslateDataTypeId(dataType);
-            switch (dataType)
-            {
-                case EplSystemId.DataType_Byte:
-                    return 1;
-
-                case EplSystemId.DataType_Short:
-                    return 2;
-
-                case EplSystemId.DataType_Int:
-                    return 4;
-
-                case EplSystemId.DataType_Long:
-                    return 8;
-
-                default:
-                    throw new ArgumentException();
-            }
-        }
-
-        /// <summary>
-        /// 不保证与字节数相等，只保证数值大的类型大
-        /// </summary>
-        /// <param name="dataType"></param>
-        /// <returns></returns>
-        public int GetFloatNumberTypeSize(CppTypeName dataType)
-        {
-            if (dataType == CppTypeName_Float)
-            {
-                return 4;
-            }
-            else if (dataType == CppTypeName_Double)
-            {
-                return 8;
-            }
-            else
-            {
-                throw new ArgumentException();
-            }
-        }
-
-        /// <summary>
-        /// 不保证与字节数相等，只保证数值大的类型大
-        /// </summary>
-        /// <param name="dataType"></param>
-        /// <returns></returns>
-        public int GetFloatNumberTypeSize(int dataType)
-        {
-            dataType = TranslateDataTypeId(dataType);
-            switch (dataType)
-            {
-                case EplSystemId.DataType_Float:
-                    return 4;
-
-                case EplSystemId.DataType_Double:
-                    return 8;
-
-                default:
-                    throw new ArgumentException();
-            }
-        }
-
-        public bool IsFloatNumberType(CppTypeName dataType)
-        {
-            if (dataType == CppTypeName_Float
-                || dataType == CppTypeName_Double)
-            {
-                return true;
-            }
-            else
-            {
-                return false;
-            }
-        }
-
-        public bool IsFloatNumberType(int dataType)
-        {
-            dataType = TranslateDataTypeId(dataType);
-            switch (dataType)
-            {
-                case EplSystemId.DataType_Float:
-                case EplSystemId.DataType_Double:
-                    return true;
-
-                default:
-                    return false;
-            }
-        }
-
-        public bool IsIntNumberType(CppTypeName dataType)
-        {
-            if (dataType == CppTypeName_Byte
-                || dataType == CppTypeName_Short
-                || dataType == CppTypeName_Int
-                || dataType == CppTypeName_Long)
-            {
-                return true;
-            }
-            else
-            {
-                return false;
-            }
-        }
-
-        public bool IsIntNumberType(int dataType)
-        {
-            dataType = TranslateDataTypeId(dataType);
-            switch (dataType)
-            {
-                case EplSystemId.DataType_Byte:
-                case EplSystemId.DataType_Int:
-                case EplSystemId.DataType_Long:
-                case EplSystemId.DataType_Short:
-                    return true;
-
-                default:
-                    return false;
-            }
-        }
-
-        public bool IsArithmeticType(CppTypeName dataType)
-        {
-            return IsIntNumberType(dataType) || IsFloatNumberType(dataType) || dataType == CppTypeName_IntPtr;
-        }
-
-        public bool IsArithmeticType(int dataType)
-        {
-            return IsIntNumberType(dataType) || IsFloatNumberType(dataType) || dataType == DataTypeId_IntPtr;
-        }
-
-        public bool IsValueType(CppTypeName dataType)
-        {
-            if (dataType == CppTypeName_Bool
-                || dataType == CppTypeName_DateTime
-                || dataType == CppTypeName_MethodPtr
-                || IsArithmeticType(dataType))
-            {
-                return true;
-            }
-            else
-            {
-                return false;
-            }
-        }
-
-        public bool IsValueType(int dataType)
-        {
-            dataType = TranslateDataTypeId(dataType);
-            switch (dataType)
-            {
-                case EplSystemId.DataType_Bool:
-                case EplSystemId.DataType_DateTime:
-                case EplSystemId.DataType_MethodPtr:
-                case var x when IsArithmeticType(x):
-                    return true;
-
-                default:
-                    return false;
-            }
-        }
-
-        public string GetInitValue(int dataType, bool isArray)
-        {
-            return GetInitValue(dataType, isArray ? new int[] { 0 } : null);
-        }
-
-        public string GetInitValue(int dataType, int[] uBound)
-        {
-            return GetCppTypeName(dataType, uBound != null && uBound.Length != 0) + "(" + GetInitParameter(dataType, uBound) + ")";
-        }
-
-        public string GetInitParameter(int dataType, bool isArray)
-        {
-            return GetInitParameter(dataType, isArray ? new int[] { 0 } : null);
-        }
-
-        public string GetInitParameter(int dataType, int[] uBound)
-        {
-            if (uBound != null && uBound.Length != 0)
-            {
-                if (uBound[0] == 0)
-                {
-                    return "nullptr";
-                }
-                return string.Join(", ", uBound.Select(x => x + "u"));
-            }
-            dataType = TranslateDataTypeId(dataType);
-            switch (dataType)
-            {
-                case EplSystemId.DataType_Bool:
-                    return "false";
-
-                case EplSystemId.DataType_Byte:
-                case EplSystemId.DataType_DateTime:
-                case EplSystemId.DataType_Double:
-                case EplSystemId.DataType_Float:
-                case EplSystemId.DataType_Int:
-                case EplSystemId.DataType_Long:
-                case EplSystemId.DataType_Short:
-                case var x when x == DataTypeId_IntPtr:
-                    return "0";
-
-                case EplSystemId.DataType_MethodPtr:
-                    return "nullptr";
-
-                default:
-                    return "";
-            }
-        }
-
-        public string GetNullParameter(int dataType, bool isArray = false)
-        {
-            if (isArray)
-            {
-                return "nullptr";
-            }
-            dataType = TranslateDataTypeId(dataType);
-            switch (dataType)
-            {
-                case EplSystemId.DataType_Bool:
-                    return "false";
-
-                case EplSystemId.DataType_Byte:
-                case EplSystemId.DataType_DateTime:
-                case EplSystemId.DataType_Double:
-                case EplSystemId.DataType_Float:
-                case EplSystemId.DataType_Int:
-                case EplSystemId.DataType_Long:
-                case EplSystemId.DataType_Short:
-                case var x when x == DataTypeId_IntPtr:
-                    return "0";
-
-                default:
-                    return "nullptr";
-            }
-        }
-
-        #endregion TypeInfoHelper
     }
 }

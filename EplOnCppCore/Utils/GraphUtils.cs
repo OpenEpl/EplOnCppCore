@@ -4,7 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 
-namespace QIQI.EplOnCpp.Core
+namespace QIQI.EplOnCpp.Core.Utils
 {
     public class GraphUtils
     {

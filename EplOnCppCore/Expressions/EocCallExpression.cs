@@ -105,7 +105,7 @@ namespace QIQI.EplOnCpp.Core.Expressions
                             writer.Write("std::reference_wrapper(");
 
                         writer.Write("BYREF");
-                        if (eocParameterInfo.DataType != ProjectConverter.CppTypeName_SkipCheck)
+                        if (eocParameterInfo.DataType != EocDataTypes.Auto)
                         {
                             writer.Write("(");
                             writer.Write(eocParameterInfo.DataType.ToString());
