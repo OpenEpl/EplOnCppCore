@@ -12,12 +12,29 @@ namespace QIQI.EplOnCpp.Core.Expressions
         public static EocCallExpression Translate(CodeConverter C, CallExpression expr)
         {
             var P = C.P;
-            if (expr == null) return null;
+            if (expr == null)
+            {
+                return null;
+            }
+            var paramList = expr.ParamList?.Select(x => EocExpression.Translate(C, x)).ToList();
+            var countOfDefaultAtEnd = 0;
+            for (int i = paramList.Count - 1; i >= 0; i--)
+            {
+                if (paramList[i] != null)
+                { 
+                    break;
+                }
+                countOfDefaultAtEnd++;
+            }
+            if (countOfDefaultAtEnd != 0)
+            {
+                paramList.RemoveRange(paramList.Count - countOfDefaultAtEnd, countOfDefaultAtEnd);
+            }
             var result = new EocCallExpression(
                 C,
                 P.GetEocCmdInfo(expr),
                 EocExpression.Translate(C, expr.Target),
-                expr.ParamList?.Select(x => EocExpression.Translate(C, x)).ToList(),
+                paramList,
                 expr.LibraryId >= 0 ? P.EocLibs[expr.LibraryId]?.SuperTemplateAssembly : null);
             if (expr.InvokeSpecial)
             {
