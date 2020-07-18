@@ -92,7 +92,7 @@ namespace QIQI.EplOnCpp.Core.Expressions
             if (Target != null)
             {
                 Target.WriteTo(writer);
-                writer.Write("->");
+                writer.Write(string.IsNullOrEmpty(CmdInfo.AccessOperator) ? "->" : CmdInfo.AccessOperator);
             }
             else if (!string.IsNullOrEmpty(SpecialScope))
             {
