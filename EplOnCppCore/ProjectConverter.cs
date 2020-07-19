@@ -5,6 +5,7 @@ using QIQI.EProjectFile.LibInfo;
 using QuickGraph;
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -27,6 +28,7 @@ namespace QIQI.EplOnCpp.Core
         }
 
         public LibInfo[] Libs { get; }
+        public ReadOnlyCollection<Dictionary<int, int>> LibCmdToDeclaringTypeMap { get; }
         public EocLibInfo[] EocLibs { get; }
         public int EocHelperLibId { get; }
         public int DataTypeId_IntPtr { get; }
@@ -118,6 +120,18 @@ namespace QIQI.EplOnCpp.Core
                         return null;
                     }
                 }).ToArray();
+            LibCmdToDeclaringTypeMap = Libs.Select(lib => {
+                var r = new Dictionary<int, int>();
+                for (int i = 0; i < lib?.DataType?.Length; i++)
+                {
+                    if (lib.DataType[i].Method != null)
+                    {
+                        Array.ForEach(lib.DataType[i].Method, x => r[x] = i);
+                    }
+                }
+                return r;
+            }).ToList().AsReadOnly();
+
             this.EocHelperLibId = Array.FindIndex(source.Code.Libraries, x => x.FileName.ToLower() == "EocHelper".ToLower());
             this.DataTypeId_IntPtr = this.EocHelperLibId == -1 ? -1 : EplSystemId.MakeLibDataTypeId((short)this.EocHelperLibId, 0);
             this.ProjectType = projectType;
@@ -818,24 +832,41 @@ namespace QIQI.EplOnCpp.Core
                     return GetEocCmdInfo(id);
 
                 default:
+                    EocCmdInfo result;
                     if (Libs[libId] == null)
                     {
-                        throw new Exception(string.Format("缺少fne信息：{0}", this.Source.Code.Libraries[libId].Name));
+                        throw new Exception($"缺少fne信息：{Source.Code.Libraries[libId].Name}");
+                    }
+                    if (EocLibs[libId] == null)
+                    {
+                        throw new Exception($"{Libs[libId].Name} 库缺少Eoc识别信息，可能是Eoc不支持该库或没有安装相应Eoc库");
                     }
                     if (Libs[libId].Cmd.Length < id)
                     {
-                        throw new Exception(string.Format("fne信息中缺少命令信息，请检查版本是否匹配【Lib：{0}，CmdId：{1}】", Libs[libId].Name, id));
+                        throw new Exception($"fne信息中缺少命令信息，请检查版本是否匹配【Lib：{Libs[libId].Name}，CmdId：{id}】");
                     }
                     var name = Libs[libId].Cmd[id].Name;
-                    if (EocLibs[libId] == null)
+                    if (LibCmdToDeclaringTypeMap[libId].TryGetValue(id, out var typeId))
                     {
-                        throw new Exception(string.Format("{0} 库缺少Eoc识别信息，可能是EOC不支持该库或没有安装相应Eoc库", Libs[libId].Name));
+                        var typeName = Libs[libId].DataType[typeId].Name;
+                        if (!EocLibs[libId].Type.TryGetValue(typeName, out var typeInfo))
+                        {
+                            throw new Exception($"{typeName} 类型缺少Eoc识别信息，可能是Eoc不支持该类型或没有安装相应Eoc库");
+                        }
+                        if (!typeInfo.Method.TryGetValue(name, out result))
+                        {
+                            throw new Exception($"{typeName}.{name} 命令缺少Eoc识别信息，可能是Eoc不支持该命令或没有安装相应Eoc库");
+                        }
                     }
-                    if (!EocLibs[libId].Cmd.ContainsKey(name))
+                    else
                     {
-                        throw new Exception(string.Format("{0} 命令缺少Eoc识别信息，可能是EOC不支持该命令或没有安装相应Eoc库", name));
+                        if (!EocLibs[libId].Cmd.TryGetValue(name, out result))
+                        {
+                            throw new Exception($"{name} 命令缺少Eoc识别信息，可能是Eoc不支持该命令或没有安装相应Eoc库");
+                        }
+                        return EocLibs[libId].Cmd[name];
                     }
-                    return EocLibs[libId].Cmd[name];
+                    return result;
             }
         }
 
