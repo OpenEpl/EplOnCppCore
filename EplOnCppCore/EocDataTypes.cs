@@ -53,6 +53,11 @@ namespace QIQI.EplOnCpp.Core
             { typeof(bool), Bool }
         };
 
+        public static CppTypeName ArrayOf(CppTypeName elemType)
+        {
+            return new CppTypeName(false, "e::system::array", new[] { elemType });
+        }
+
         public static CppTypeName GetConstValueType(object value)
         {
             var type = value.GetType();
@@ -63,7 +68,7 @@ namespace QIQI.EplOnCpp.Core
             }
 
             return isArray
-                ? new CppTypeName(false, "e::system::array", new[] { ConstTypeMap[type] })
+                ? ArrayOf(ConstTypeMap[type])
                 : ConstTypeMap[type];
         }
 
@@ -241,11 +246,6 @@ namespace QIQI.EplOnCpp.Core
             return result;
         }
 
-        public static string GetInitValue(CppTypeName dataType, List<int> uBound = null)
-        {
-            return $"{dataType}({GetInitParameter(dataType, uBound)})";
-        }
-
         public static string GetInitParameter(CppTypeName dataType, List<int> uBound = null)
         {
             if (dataType.Name == "e::system::array")
@@ -254,7 +254,6 @@ namespace QIQI.EplOnCpp.Core
                 {
                     return string.Join(", ", uBound.Select(x => x + "u"));
                 }
-                return "nullptr";
             }
             if (dataType == Bool)
             {
@@ -272,32 +271,7 @@ namespace QIQI.EplOnCpp.Core
             {
                 return "nullptr";
             }
-            return "";
-        }
-
-        public static string GetNullParameter(CppTypeName dataType)
-        {
-            if (dataType.Name == "e::system::array")
-            {
-                return "nullptr";
-            }
-            if (dataType == Bool)
-            {
-                return "false";
-            }
-            if (IsArithmeticType(dataType))
-            {
-                return "0";
-            }
-            if (dataType == DateTime)
-            {
-                return "0";
-            }
-            if (dataType == MethodPtr)
-            {
-                return "nullptr";
-            }
-            return "nullptr";
+            return $"e::system::default_value<{dataType}>::value()";
         }
     }
 }

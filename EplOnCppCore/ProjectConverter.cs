@@ -643,7 +643,27 @@ namespace QIQI.EplOnCpp.Core
 
         internal void WriteMethodHeader(CodeWriter writer, EocCmdInfo eocCmdInfo, string name, bool isVirtual, string className = null, bool writeDefaultValue = true)
         {
-            var paramName = GetParamNameFromInfo(eocCmdInfo.Parameters);
+            var paramNames = GetParamNameFromInfo(eocCmdInfo.Parameters);
+            var numOfAuto = 0;
+            for (int i = 0; i < eocCmdInfo.Parameters.Count; i++)
+            {
+                if (numOfAuto == 0)
+                {
+                    writer.NewLine();
+                    writer.Write("template <");
+                }
+                else
+                {
+                    writer.Write(", ");
+                }
+                writer.Write($"typename _EocAutoParam_{paramNames[i]}");
+                numOfAuto++;
+            }
+            if (numOfAuto != 0)
+            {
+                writer.Write(">");
+            }
+
             writer.NewLine();
             if (isVirtual)
             {
@@ -673,9 +693,9 @@ namespace QIQI.EplOnCpp.Core
             {
                 if (i != 0)
                     writer.Write(", ");
-                writer.Write(GetParameterTypeString(eocCmdInfo.Parameters[i]));
+                writer.Write(GetParameterTypeString(eocCmdInfo.Parameters[i], $"_EocAutoParam_{paramNames[i]}"));
                 writer.Write(" ");
-                writer.Write(paramName[i]);
+                writer.Write(paramNames[i]);
                 if (writeDefaultValue && i >= startOfOptionalAtEnd)
                 {
                     writer.Write(" = std::nullopt");
@@ -885,9 +905,13 @@ namespace QIQI.EplOnCpp.Core
             }
         }
 
-        public string GetParameterTypeString(EocParameterInfo x)
+        public string GetParameterTypeString(EocParameterInfo x, string typeForAuto = null)
         {
             var r = x.DataType.ToString();
+            if (!string.IsNullOrEmpty(typeForAuto) && x.DataType == EocDataTypes.Auto)
+            {
+                r = typeForAuto;
+            }
             if (x.Optional)
             {
                 if (x.ByRef)

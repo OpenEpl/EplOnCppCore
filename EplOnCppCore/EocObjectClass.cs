@@ -165,7 +165,7 @@ namespace QIQI.EplOnCpp.Core
 
                     foreach (var item in Method.Values)
                     {
-                        item.ImplementItem(writer);
+                        item.ImplementNormalItem(writer);
                     }
                 }
             }

@@ -30,6 +30,13 @@ namespace QIQI.EplOnCpp.Core
                 {
                     item.DefineItem(writer);
                 }
+                foreach (var item in Method.Values)
+                {
+                    if (item.TemplatedMethod)
+                    {
+                        item.ImplementTemplateItem(writer);
+                    }
+                }
             }
         }
 
@@ -70,7 +77,10 @@ namespace QIQI.EplOnCpp.Core
                 }
                 foreach (var item in Method.Values)
                 {
-                    item.ImplementItem(writer);
+                    if (!item.TemplatedMethod)
+                    {
+                        item.ImplementNormalItem(writer);
+                    }
                 }
             }
         }

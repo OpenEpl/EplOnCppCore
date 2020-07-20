@@ -2,6 +2,8 @@
 using QIQI.EplOnCpp.Core.Statements;
 using QIQI.EplOnCpp.Core.Utils;
 using QIQI.EProjectFile;
+using QIQI.EProjectFile.Expressions;
+using QIQI.EProjectFile.Statements;
 using QuickGraph;
 using System;
 using System.Collections.Generic;
@@ -21,10 +23,35 @@ namespace QIQI.EplOnCpp.Core
         public ILoggerWithContext Logger => P.Logger;
         public SortedDictionary<int, EocParameterInfo> ParamMap { get; }
         public SortedDictionary<int, EocLocalVariableInfo> LocalMap { get; }
+        public StatementBlock RawStatementBlock { get; set; }
         public EocStatementBlock StatementBlock { get; set; }
+        public bool TemplatedMethod { get; }
 
-        private static EocCmdInfo InferEocCmdInfo(ProjectConverter P, MethodInfo rawInfo)
+        private static EocCmdInfo InferEocCmdInfo(ProjectConverter P, MethodInfo rawInfo, StatementBlock rawStatementBlock)
         {
+            var autoParam = new HashSet<int>();
+            for (int i = 0; i < rawStatementBlock.Count; )
+            {
+                if (rawStatementBlock[i] is ExpressionStatement exprStat)
+                {
+                    var callExpr = exprStat.Expression;
+                    var cmdName = P.IdToNameMap.GetLibCmdName(callExpr.LibraryId, callExpr.MethodId);
+                    switch (cmdName)
+                    {
+                        case "EOC标记_自适应参数":
+                            if (callExpr.ParamList.FirstOrDefault() is VariableExpression varExpr)
+                            {
+                                autoParam.Add(varExpr.Id);
+                            }
+                            rawStatementBlock.RemoveAt(i);
+                            break;
+                        default:
+                            i++;
+                            break;
+                    }
+                }
+            }
+
             var name = P.GetUserDefinedName_SimpleCppName(rawInfo.Id);
             string cppName;
             if (EplSystemId.GetType(P.MethodIdToClassMap[rawInfo.Id].Id) == EplSystemId.Type_Class)
@@ -41,10 +68,23 @@ namespace QIQI.EplOnCpp.Core
                 CppName = cppName,
                 Parameters = rawInfo.Parameters.Select((x) =>
                 {
-                    var dataType = EocDataTypes.Translate(P, x.DataType, x.ArrayParameter);
+                    CppTypeName dataType;
+                    if (autoParam.Contains(x.Id))
+                    {
+                        dataType = x.ArrayParameter ? EocDataTypes.ArrayOf(EocDataTypes.Auto) : EocDataTypes.Auto;
+                    }
+                    else
+                    {
+                        dataType = EocDataTypes.Translate(P, x.DataType, x.ArrayParameter);
+                    }
+                    if (dataType == EocDataTypes.Any && !x.ByRef)
+                    {
+                        //考虑到可空、参考（非基本类型强制参考、基本类型非参考）等问题，实现起来过于麻烦，暂时搁置
+                        throw new NotImplementedException("暂不支持非参考自适应参数，请勾选 参考 或 贡献代码实现相应功能");
+                    }
                     return new EocParameterInfo()
                     {
-                        ByRef = x.ByRef || x.ArrayParameter || !EocDataTypes.IsValueType(dataType),
+                        ByRef = x.ByRef || x.ArrayParameter || (!EocDataTypes.IsValueType(dataType) && dataType != EocDataTypes.Any),
                         Optional = x.OptionalParameter,
                         VarArgs = false,
                         DataType = dataType,
@@ -58,10 +98,12 @@ namespace QIQI.EplOnCpp.Core
         {
             this.P = projectConverter;
             this.Name = P.GetUserDefinedName_SimpleCppName(methodItem.Id);
-            this.Info = InferEocCmdInfo(P, methodItem);
-            this.IsClassMember = classItem is EocObjectClass;
             this.ClassItem = classItem;
             this.MethodItem = methodItem;
+            this.RawStatementBlock = CodeDataParser.ParseStatementBlock(methodItem.CodeData.ExpressionData, methodItem.CodeData.Encoding);
+            this.Info = InferEocCmdInfo(P, methodItem, RawStatementBlock);
+            this.TemplatedMethod = Info.Parameters.Find(x => x.DataType == EocDataTypes.Auto) != null;
+            this.IsClassMember = classItem is EocObjectClass;
             this.ParamMap = new SortedDictionary<int, EocParameterInfo>();
             for (int i = 0; i < Info.Parameters.Count; i++)
             {
@@ -94,7 +136,7 @@ namespace QIQI.EplOnCpp.Core
                 .Set("class", P.IdToNameMap.GetUserDefinedName(ClassItem.RawInfo.Id))
                 .Set("method", P.IdToNameMap.GetUserDefinedName(MethodItem.Id)))
             {
-                this.StatementBlock = EocStatementBlock.Translate(this, CodeDataParser.ParseStatementBlock(MethodItem.CodeData.ExpressionData, MethodItem.CodeData.Encoding));
+                this.StatementBlock = EocStatementBlock.Translate(this, RawStatementBlock);
             }
         }
 
@@ -116,29 +158,22 @@ namespace QIQI.EplOnCpp.Core
             foreach (var x in Info.Parameters.Where(x => x.Optional))
             {
                 var name = x.CppName;
-                var nullParameter = EocDataTypes.GetNullParameter(x.DataType);
-                var initValue = EocDataTypes.GetInitValue(x.DataType);
+                var typeName = x.DataType == EocDataTypes.Auto ? $"_EocAutoParam_{x.CppName}" : x.DataType.ToString();
+                var nullValue = $"e::system::default_value<{typeName}>::null()";
+                var initValue = $"e::system::default_value<{typeName}>::value()";
                 writer.NewLine();
                 writer.Write($"bool eoc_isNull_{name} = !{name}.has_value();");
                 if (x.ByRef)
                 {
                     writer.NewLine();
-                    if (string.IsNullOrWhiteSpace(nullParameter))
-                    {
-                        writer.Write($"{x.DataType} eoc_default_{name};");
-                    }
-                    else
-                    {
-                        writer.Write($"{x.DataType} eoc_default_{name}({nullParameter});");
-                    }
-
+                    writer.Write($"{typeName} eoc_default_{name} = {nullValue};");
                     writer.NewLine();
-                    writer.Write($"{x.DataType}& eoc_value_{name} = eoc_isNull_{name} ? (eoc_default_{name} = {initValue}) : {name}.value().get();");
+                    writer.Write($"{typeName}& eoc_value_{name} = eoc_isNull_{name} ? (eoc_default_{name} = {initValue}) : {name}.value().get();");
                 }
                 else
                 {
                     writer.NewLine();
-                    writer.Write($"{x.DataType} eoc_value_{name} = eoc_isNull_{name} ? {initValue} : {name}.value();");
+                    writer.Write($"{typeName} eoc_value_{name} = eoc_isNull_{name} ? {initValue} : {name}.value();");
                 }
             }
         }
@@ -175,16 +210,44 @@ namespace QIQI.EplOnCpp.Core
             P.DefineMethod(writer, Info, Name, isVirtual);
         }
 
-        internal void ImplementItem(CodeWriter writer)
+        internal void ImplementNormalItem(CodeWriter writer)
         {
             using (new LoggerContextHelper(Logger)
                 .Set("class", P.IdToNameMap.GetUserDefinedName(ClassItem.RawInfo.Id))
                 .Set("method", P.IdToNameMap.GetUserDefinedName(MethodItem.Id)))
             {
+                if (TemplatedMethod)
+                {
+                    throw new Exception("无法使用模板化方法");
+                }
                 string classRawName = null;
                 if (ClassItem is EocObjectClass x)
                     classRawName = x.RawName;
                 P.WriteMethodHeader(writer, Info, Name, false, classRawName, false);
+                using (writer.NewBlock())
+                {
+                    P.DefineVariable(writer, null, LocalMap.Values);
+                    WriteOptionalParameterReader(writer);
+                    StatementBlock.WriteTo(writer);
+                }
+            }
+        }
+
+        internal void ImplementTemplateItem(CodeWriter writer)
+        {
+            using (new LoggerContextHelper(Logger)
+                .Set("class", P.IdToNameMap.GetUserDefinedName(ClassItem.RawInfo.Id))
+                .Set("method", P.IdToNameMap.GetUserDefinedName(MethodItem.Id)))
+            {
+                if (!TemplatedMethod)
+                {
+                    throw new Exception("必须使用模板化方法");
+                }
+                if (ClassItem is EocObjectClass x)
+                {
+                    throw new Exception("非静态方法不能模板化");
+                }
+                P.WriteMethodHeader(writer, Info, Name, false, null, false);
                 using (writer.NewBlock())
                 {
                     P.DefineVariable(writer, null, LocalMap.Values);
