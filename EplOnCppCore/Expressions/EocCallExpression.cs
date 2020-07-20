@@ -119,7 +119,7 @@ namespace QIQI.EplOnCpp.Core.Expressions
                     if (eocParameterInfo.ByRef)
                     {
                         if (eocParameterInfo.Optional)
-                            writer.Write("std::reference_wrapper(");
+                            writer.Write("std::optional(std::reference_wrapper(");
 
                         writer.Write("BYREF");
                         if (eocParameterInfo.DataType != EocDataTypes.Auto)
@@ -137,7 +137,7 @@ namespace QIQI.EplOnCpp.Core.Expressions
                     if (eocParameterInfo.ByRef)
                     {
                         if (eocParameterInfo.Optional)
-                            writer.Write(")");
+                            writer.Write("))");
 
                         writer.Write(")");
                     }
