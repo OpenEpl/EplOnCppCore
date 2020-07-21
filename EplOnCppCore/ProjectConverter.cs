@@ -198,7 +198,7 @@ namespace QIQI.EplOnCpp.Core
             //分析依赖图
             foreach (var x in EocConstantMap.Values)
             {
-                x.AnalyzeDependencies(DependencyGraph);
+                x?.AnalyzeDependencies(DependencyGraph);
             }
             foreach (var x in EocStructMap.Values)
             {
@@ -245,7 +245,7 @@ namespace QIQI.EplOnCpp.Core
             GraphUtils.AnalyzeDependencies(DependencyGraph, "[Root]", this.Dependencies);
 
             //删除未使用代码
-            EocConstantMap = EocConstantMap.FilterSortedDictionary(x => Dependencies.Contains(x.Value.RefId));
+            EocConstantMap = EocConstantMap.FilterSortedDictionary(x => Dependencies.Contains(x.Value?.RefId));
             EocStructMap = EocStructMap.FilterSortedDictionary(x => Dependencies.Contains(x.Value.RefId));
             EocGlobalVariableMap = EocGlobalVariableMap.FilterSortedDictionary(x => Dependencies.Contains(x.Value.RefId));
             EocDllDeclareMap = EocDllDeclareMap.FilterSortedDictionary(x => Dependencies.Contains(x.Value.RefId));
