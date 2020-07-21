@@ -647,6 +647,10 @@ namespace QIQI.EplOnCpp.Core
             var numOfAuto = 0;
             for (int i = 0; i < eocCmdInfo.Parameters.Count; i++)
             {
+                if (eocCmdInfo.Parameters[i].DataType != EocDataTypes.Auto)
+                {
+                    continue;
+                }
                 if (numOfAuto == 0)
                 {
                     writer.NewLine();
