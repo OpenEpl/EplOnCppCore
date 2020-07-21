@@ -44,12 +44,10 @@ namespace QIQI.EplOnCpp.Core
                                 autoParam.Add(varExpr.Id);
                             }
                             rawStatementBlock.RemoveAt(i);
-                            break;
-                        default:
-                            i++;
-                            break;
+                            continue;
                     }
                 }
+                i++;
             }
 
             var name = P.GetUserDefinedName_SimpleCppName(rawInfo.Id);
