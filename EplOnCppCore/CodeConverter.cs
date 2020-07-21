@@ -35,16 +35,19 @@ namespace QIQI.EplOnCpp.Core
                 if (rawStatementBlock[i] is ExpressionStatement exprStat)
                 {
                     var callExpr = exprStat.Expression;
-                    var cmdName = P.IdToNameMap.GetLibCmdName(callExpr.LibraryId, callExpr.MethodId);
-                    switch (cmdName)
+                    if (callExpr != null && callExpr.LibraryId == P.EocHelperLibId)
                     {
-                        case "EOC标记_自适应参数":
-                            if (callExpr.ParamList.FirstOrDefault() is VariableExpression varExpr)
-                            {
-                                autoParam.Add(varExpr.Id);
-                            }
-                            rawStatementBlock.RemoveAt(i);
-                            continue;
+                        var cmdName = P.IdToNameMap.GetLibCmdName(callExpr.LibraryId, callExpr.MethodId);
+                        switch (cmdName)
+                        {
+                            case "EOC标记_自适应参数":
+                                if (callExpr.ParamList.FirstOrDefault() is VariableExpression varExpr)
+                                {
+                                    autoParam.Add(varExpr.Id);
+                                }
+                                rawStatementBlock.RemoveAt(i);
+                                continue;
+                        }
                     }
                 }
                 i++;
