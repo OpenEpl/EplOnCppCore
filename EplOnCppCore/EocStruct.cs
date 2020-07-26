@@ -103,17 +103,9 @@ namespace QIQI.EplOnCpp.Core
                 writer.Write("static constexpr bool SameMemoryStruct = false;");
 
                 writer.NewLine();
-                writer.Write("#pragma pack(push)");
-                writer.NewLine();
-                writer.Write("#pragma pack(1)");
-
-                writer.NewLine();
                 writer.Write("struct NativeType");
                 WriteStructMarshalerCodeBlock(writer, "DefineMember");
                 writer.Write(";");
-
-                writer.NewLine();
-                writer.Write("#pragma pack(pop)");
 
                 writer.NewLine();
                 writer.Write("static void marshal(NativeType &v, ManagedType &r)");
