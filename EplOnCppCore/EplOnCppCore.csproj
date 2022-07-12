@@ -9,16 +9,16 @@
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>
     <Title>EplOnCpp Core</Title>
     <Description>EplOnCpp Core</Description>
-    <Company>QIQI</Company>
-    <Copyright>Copyright (C) 2019 - 2020 QIQI (1354092549@qq.com)</Copyright>
+    <Company>OpenEpl</Company>
+    <Copyright>Copyright (C) 2019 - 2022 OpenEpl</Copyright>
     <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
     <PackageId>QIQI.EplOnCpp.Core</PackageId>
     <Tags>EPL</Tags>
-    <Authors>QIQI</Authors>
+    <Authors>OpenEpl</Authors>
     <RootNamespace>QIQI.EplOnCpp.Core</RootNamespace>
     <AssemblyName>QIQI.EplOnCpp.Core</AssemblyName>
-    <Version>2.1.0</Version>
+    <Version>2.2.0</Version>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageProjectUrl>https://github.com/1354092549/EplOnCppCore</PackageProjectUrl>
   </PropertyGroup>
