@@ -1,5 +1,7 @@
 ﻿using CommandLine;
 using QIQI.EplOnCpp.Core;
+using QIQI.EProjectFile;
+using QIQI.EProjectFile.Sections;
 using System;
 using System.IO;
 using System.Reflection;
@@ -27,10 +29,10 @@ namespace QIQI.EplOnCpp.CLI
 
         public int Run()
         {
-            var source = new EProjectFile.EProjectFile();
+            var source = new EplDocument();
             var logger = new StreamLoggerWithContext(Console.Out, Console.Error, Debug);
             source.Load(File.OpenRead(Input));
-            if (!Force && source.ESystemInfo.FileType != 3)
+            if (!Force && source.GetOrNull(ESystemInfoSection.Key)?.FileType != 3)
                 throw new Exception("源文件应为ECom(*.ec)文件");
             new ProjectConverter(source, Type, default, logger).Generate(Output);
             return 0;

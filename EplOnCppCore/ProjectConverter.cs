@@ -2,6 +2,7 @@
 using QIQI.EProjectFile;
 using QIQI.EProjectFile.Expressions;
 using QIQI.EProjectFile.LibInfo;
+using QIQI.EProjectFile.Sections;
 using QuickGraph;
 using System;
 using System.Collections.Generic;
@@ -22,7 +23,7 @@ namespace QIQI.EplOnCpp.Core
         /// <param name="projectType"></param>
         /// <param name="projectNamespace"></param>
         [Obsolete]
-        public static void Convert(EProjectFile.EProjectFile source, string dest, EocProjectType projectType = EocProjectType.Console, string projectNamespace = "e::user")
+        public static void Convert(EplDocument source, string dest, EocProjectType projectType = EocProjectType.Console, string projectNamespace = "e::user")
         {
             new ProjectConverter(source, projectType, projectNamespace).Generate(dest);
         }
@@ -56,10 +57,13 @@ namespace QIQI.EplOnCpp.Core
         public string DllNamespace { get; }
         public string ConstantNamespace { get; }
         public string GlobalNamespace { get; }
-        public EProjectFile.EProjectFile Source { get; }
+        public EplDocument Source { get; }
         public ILoggerWithContext Logger { get; }
         public HashSet<string> Dependencies { get; set; }
         private List<string> SourceFiles;
+        private readonly CodeSection Code;
+        private readonly ResourceSection Resource;
+        private readonly InitECSection InitECSection;
 
         public enum EocProjectType
         {
@@ -68,20 +72,20 @@ namespace QIQI.EplOnCpp.Core
             Dll
         }
 
-        public ProjectConverter(EProjectFile.EProjectFile source, EocProjectType projectType = EocProjectType.Console, string projectNamespace = "e::user", ILoggerWithContext logger = null)
+        public ProjectConverter(EplDocument source, EocProjectType projectType = EocProjectType.Console, string projectNamespace = "e::user", ILoggerWithContext logger = null)
         {
             this.Logger = logger ?? new NullLoggerWithContext();
+            this.Source = source ?? throw new ArgumentNullException(nameof(source));
 
-            if (source == null)
-            {
-                throw new ArgumentNullException(nameof(source));
-            }
+            this.Code = source.Get(CodeSection.Key);
+            this.Resource = source.Get(ResourceSection.Key);
+            this.InitECSection = source.GetOrNull(InitECSection.Key);
 
-            this.IdToNameMap = new IdToNameMap(source.Code, source.Resource, source.LosableSection);
-            this.MethodIdMap = source.Code.Methods.ToDictionary(x => x.Id);
+            this.IdToNameMap = new IdToNameMap(source);
+            this.MethodIdMap = Code.Methods.ToDictionary(x => x.Id);
 
             this.MethodIdToClassMap = new Dictionary<int, ClassInfo>();
-            foreach (var item in source.Code.Classes)
+            foreach (var item in Code.Classes)
             {
                 Array.ForEach(item.Method, x => MethodIdToClassMap.Add(x, item));
             }
@@ -93,8 +97,7 @@ namespace QIQI.EplOnCpp.Core
             this.DllNamespace = projectNamespace + "::dll";
             this.ConstantNamespace = projectNamespace + "::constant";
             this.GlobalNamespace = projectNamespace + "::global";
-            this.Source = source;
-            this.Libs = source.Code.Libraries.Select(
+            this.Libs = Code.Libraries.Select(
                 x =>
                 {
                     try
@@ -107,7 +110,7 @@ namespace QIQI.EplOnCpp.Core
                         return null;
                     }
                 }).ToArray();
-            this.EocLibs = source.Code.Libraries.Select(
+            this.EocLibs = Code.Libraries.Select(
                 x =>
                 {
                     try
@@ -132,16 +135,16 @@ namespace QIQI.EplOnCpp.Core
                 return r;
             }).ToList().AsReadOnly();
 
-            this.EocHelperLibId = Array.FindIndex(source.Code.Libraries, x => x.FileName.ToLower() == "EocHelper".ToLower());
+            this.EocHelperLibId = Array.FindIndex(Code.Libraries, x => x.FileName.ToLower() == "EocHelper".ToLower());
             this.DataTypeId_IntPtr = this.EocHelperLibId == -1 ? -1 : EplSystemId.MakeLibDataTypeId((short)this.EocHelperLibId, 0);
             this.ProjectType = projectType;
 
-            this.EocConstantMap = EocConstant.Translate(this, Source.Resource.Constants);
-            this.EocStructMap = EocStruct.Translate(this, Source.Code.Structs);
-            this.EocGlobalVariableMap = EocGlobalVariable.Translate(this, Source.Code.GlobalVariables);
-            this.EocDllDeclareMap = EocDll.Translate(this, Source.Code.DllDeclares);
-            this.EocObjectClassMap = EocObjectClass.Translate(this, Source.Code.Classes.Where(x => EplSystemId.GetType(x.Id) == EplSystemId.Type_Class));
-            this.EocStaticClassMap = EocStaticClass.Translate(this, Source.Code.Classes.Where(x => EplSystemId.GetType(x.Id) != EplSystemId.Type_Class));
+            this.EocConstantMap = EocConstant.Translate(this, Resource.Constants);
+            this.EocStructMap = EocStruct.Translate(this, Code.Structs);
+            this.EocGlobalVariableMap = EocGlobalVariable.Translate(this, Code.GlobalVariables);
+            this.EocDllDeclareMap = EocDll.Translate(this, Code.DllDeclares);
+            this.EocObjectClassMap = EocObjectClass.Translate(this, Code.Classes.Where(x => EplSystemId.GetType(x.Id) == EplSystemId.Type_Class));
+            this.EocStaticClassMap = EocStaticClass.Translate(this, Code.Classes.Where(x => EplSystemId.GetType(x.Id) != EplSystemId.Type_Class));
 
 
             this.EocMemberMap =
@@ -157,7 +160,7 @@ namespace QIQI.EplOnCpp.Core
 
             if (ProjectType == EocProjectType.Dll)
             {
-                this.EocDllExportMap = EocDllExport.Translate(this, Source.Code.Methods.Where(x => x.IsStatic && x.Public).Select(x => x.Id));
+                this.EocDllExportMap = EocDllExport.Translate(this, Code.Methods.Where(x => x.IsStatic && x.Public).Select(x => x.Id));
             }
         }
 
@@ -227,13 +230,13 @@ namespace QIQI.EplOnCpp.Core
                     x.AnalyzeDependencies(DependencyGraph);
                 }
             }
-            if (Source.InitEcSectionInfo != null)
+            if (InitECSection != null)
             {
-                DependencyGraph.AddVerticesAndEdgeRange(Source.InitEcSectionInfo.InitMethod.Select(x => new Edge<string>("[Root]", GetCppMethodName(x))));
+                DependencyGraph.AddVerticesAndEdgeRange(InitECSection.InitMethod.Select(x => new Edge<string>("[Root]", GetCppMethodName(x))));
             }
-            if (Source.Code.MainMethod != 0)
+            if (Code.MainMethod != 0)
             {
-                DependencyGraph.AddVerticesAndEdge(new Edge<string>("[Root]", GetCppMethodName(Source.Code.MainMethod)));
+                DependencyGraph.AddVerticesAndEdge(new Edge<string>("[Root]", GetCppMethodName(Code.MainMethod)));
             }
             else
             {
@@ -362,21 +365,21 @@ namespace QIQI.EplOnCpp.Core
             writer.Write("int init()");
             using (writer.NewBlock())
             {
-                if (Source.InitEcSectionInfo != null)
+                if (InitECSection != null)
                 {
-                    for (int i = 0; i < Source.InitEcSectionInfo.InitMethod.Length; i++)
+                    for (int i = 0; i < InitECSection.InitMethod.Length; i++)
                     {
                         writer.NewLine();
-                        writer.Write(GetCppMethodName(Source.InitEcSectionInfo.InitMethod[i]));
+                        writer.Write(GetCppMethodName(InitECSection.InitMethod[i]));
                         writer.Write("();");
-                        writer.AddComment("为{" + Source.InitEcSectionInfo.EcName[i] + "}做初始化");
+                        writer.AddComment("为{" + InitECSection.ECName[i] + "}做初始化");
                     }
                 }
-                if (Source.Code.MainMethod != 0)
+                if (Code.MainMethod != 0)
                 {
                     writer.NewLine();
                     writer.Write("return ");
-                    writer.Write(GetCppMethodName(Source.Code.MainMethod));
+                    writer.Write(GetCppMethodName(Code.MainMethod));
                     writer.Write("();");
                 }
                 else
@@ -483,9 +486,9 @@ namespace QIQI.EplOnCpp.Core
             //系统库
             writer.WriteLine("target_link_eoc_lib(main system EocSystem)");
             //支持库
-            for (int i = 0; i < Source.Code.Libraries.Length; i++)
+            for (int i = 0; i < Code.Libraries.Length; i++)
             {
-                LibraryRefInfo item = Source.Code.Libraries[i];
+                LibraryRefInfo item = Code.Libraries[i];
                 string libCMakeName = EocLibs[i]?.CMakeName;
                 if (string.IsNullOrEmpty(libCMakeName))
                     continue;
@@ -537,11 +540,11 @@ namespace QIQI.EplOnCpp.Core
 
         private void ReferenceEocLibs(CodeWriter writer)
         {
-            for (int i = 0; i < Source.Code.Libraries.Length; i++)
+            for (int i = 0; i < Code.Libraries.Length; i++)
             {
                 if (EocLibs[i] == null)
                     continue;
-                LibraryRefInfo item = Source.Code.Libraries[i];
+                LibraryRefInfo item = Code.Libraries[i];
                 writer.NewLine();
                 writer.Write($"#include <e/lib/{item.FileName}/public.h>");
             }
@@ -859,7 +862,7 @@ namespace QIQI.EplOnCpp.Core
                     EocCmdInfo result;
                     if (Libs[libId] == null)
                     {
-                        throw new Exception($"缺少fne信息：{Source.Code.Libraries[libId].Name}");
+                        throw new Exception($"缺少fne信息：{Code.Libraries[libId].Name}");
                     }
                     if (EocLibs[libId] == null)
                     {
