@@ -4,7 +4,7 @@ using QIQI.EplOnCpp.Core.Utils;
 using QIQI.EProjectFile;
 using QIQI.EProjectFile.Expressions;
 using QIQI.EProjectFile.Statements;
-using QuickGraph;
+using QuikGraph;
 using System;
 using System.Collections.Generic;
 using System.Linq;

@@ -1,7 +1,7 @@
 ﻿using QIQI.EplOnCpp.Core.Utils;
 using QIQI.EProjectFile;
-using QuickGraph;
-using QuickGraph.Algorithms;
+using QuikGraph;
+using QuikGraph.Algorithms;
 using System;
 using System.Collections.Generic;
 using System.Linq;

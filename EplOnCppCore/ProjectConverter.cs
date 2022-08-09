@@ -3,7 +3,7 @@ using QIQI.EProjectFile;
 using QIQI.EProjectFile.Expressions;
 using QIQI.EProjectFile.LibInfo;
 using QIQI.EProjectFile.Sections;
-using QuickGraph;
+using QuikGraph;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;

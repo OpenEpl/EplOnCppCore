@@ -1,6 +1,6 @@
 ﻿using QIQI.EplOnCpp.Core.Expressions;
 using QIQI.EProjectFile.Statements;
-using QuickGraph;
+using QuikGraph;
 using System;
 
 namespace QIQI.EplOnCpp.Core.Statements

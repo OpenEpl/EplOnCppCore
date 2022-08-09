@@ -1,5 +1,5 @@
 ﻿using QIQI.EProjectFile.Expressions;
-using QuickGraph;
+using QuikGraph;
 using System;
 
 namespace QIQI.EplOnCpp.Core.Expressions
