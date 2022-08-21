@@ -38,7 +38,7 @@ namespace QIQI.EplOnCpp.Core
             P.DefineMethod(writer, Info, Name, false);
         }
 
-        private void ImplementItem(CodeWriter writer, Dictionary<string, string> moduleMap, Dictionary<Tuple<string, string>, string> funcMap)
+        private void ImplementItem(CodeWriter writer, string funcId)
         {
             var paramName = P.GetParamNameFromInfo(Info.Parameters);
             string returnTypeString = Info.ReturnDataType == null ? "void" : Info.ReturnDataType.ToString();
@@ -67,7 +67,6 @@ namespace QIQI.EplOnCpp.Core
                 writer.Write(funcTypeString);
                 writer.Write(">::call(");
 
-                var funcId = funcMap[new Tuple<string, string>(moduleMap[LibraryName], EntryPoint)];
                 writer.Write($"{P.DllNamespace}::eoc_func::GetFuncPtr_{funcId}()");
 
                 writer.Write(string.Join("", paramName.Select(x => $", {x}")));
@@ -133,22 +132,30 @@ namespace QIQI.EplOnCpp.Core
             using (writer.NewNamespace(P.DllNamespace))
             {
                 var moduleMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-                var funcMap = new Dictionary<Tuple<string, string>, string>();
-                var eocDlls = map.Values.ToList();
-                for (int i = 0, j = 0, k = 0; i < eocDlls.Count; i++)
+                var funcMap = new Dictionary<(string dllId, string entryPoint), string>();
+                var funcToImplement = new List<(EocDll dll, string funcId)>();
+
                 {
-                    var item = eocDlls[i];
-                    if (!moduleMap.TryGetValue(item.LibraryName, out var dllIdInCpp))
+                    int dllIdCount = 0, funcIdCount = 0;
+                    var enumerator = map.Values.GetEnumerator();
+                    while (enumerator.MoveNext())
                     {
-                        dllIdInCpp = (j++).ToString();
-                        moduleMap.Add(item.LibraryName, dllIdInCpp);
-                    }
-                    var dllEntryPointPair = new Tuple<string, string>(dllIdInCpp, item.EntryPoint);
-                    if (!funcMap.ContainsKey(dllEntryPointPair))
-                    {
-                        funcMap.Add(dllEntryPointPair, (k++).ToString());
+                        var item = enumerator.Current;
+                        if (!moduleMap.TryGetValue(item.LibraryName, out var dllId))
+                        {
+                            dllId = (dllIdCount++).ToString();
+                            moduleMap.Add(item.LibraryName, dllId);
+                        }
+                        var funcKey = (dllId, item.EntryPoint);
+                        if (!funcMap.TryGetValue(funcKey, out var funcId))
+                        {
+                            funcId = (funcIdCount++).ToString();
+                            funcMap.Add(funcKey, funcId);
+                        }
+                        funcToImplement.Add((item, funcId));
                     }
                 }
+
                 using (writer.NewNamespace("eoc_module"))
                 {
                     foreach (var item in moduleMap)
@@ -157,11 +164,12 @@ namespace QIQI.EplOnCpp.Core
                         writer.Write($"eoc_DefineMoudleLoader({item.Value}, \"{item.Key}\");");
                     }
                 }
+
                 using (writer.NewNamespace("eoc_func"))
                 {
                     foreach (var item in funcMap)
                     {
-                        var entryPointExpr = item.Key.Item2;
+                        var entryPointExpr = item.Key.entryPoint;
                         if (entryPointExpr.StartsWith("#"))
                         {
                             entryPointExpr = $"reinterpret_cast<const char *>({Convert.ToInt32(entryPointExpr.Substring(1))})";
@@ -171,12 +179,13 @@ namespace QIQI.EplOnCpp.Core
                             entryPointExpr = $"\"{entryPointExpr}\"";
                         }
                         writer.NewLine();
-                        writer.Write($"eoc_DefineFuncPtrGetter({item.Value}, {P.DllNamespace}::eoc_module::GetMoudleHandle_{item.Key.Item1}(), {entryPointExpr});");
+                        writer.Write($"eoc_DefineFuncPtrGetter({item.Value}, {P.DllNamespace}::eoc_module::GetMoudleHandle_{item.Key.dllId}(), {entryPointExpr});");
                     }
                 }
-                foreach (var item in eocDlls)
+
+                foreach (var (dll, funcId) in funcToImplement)
                 {
-                    item.ImplementItem(writer, moduleMap, funcMap);
+                    dll.ImplementItem(writer, funcId);
                 }
             }
         }
