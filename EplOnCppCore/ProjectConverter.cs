@@ -243,7 +243,7 @@ namespace QIQI.EplOnCpp.Core
             }
             else
             {
-                DependencyGraph.AddVerticesAndEdge(new Edge<string>("[Root]", "e::user::cmd::EocUser__启动子程序"));
+                DependencyGraph.AddVerticesAndEdge(new Edge<string>("[Root]", $"e::user::cmd::{NameMangling("_启动子程序")}"));
             }
 
             //生成依赖列表
@@ -388,7 +388,7 @@ namespace QIQI.EplOnCpp.Core
                 else
                 {
                     writer.NewLine();
-                    writer.Write("return e::user::cmd::EocUser__启动子程序();");
+                    writer.Write($"return e::user::cmd::{NameMangling("_启动子程序")};");
                 }
             }
             switch (ProjectType)
@@ -728,9 +728,14 @@ namespace QIQI.EplOnCpp.Core
             return size;
         }
 
+        public static string NameMangling(string naked)
+        {
+            return "x_" + naked;
+        }
+
         public string GetUserDefinedName_SimpleCppName(int id)
         {
-            return "EocUser_" + IdToNameMap.GetUserDefinedName(id);
+            return NameMangling(IdToNameMap.GetUserDefinedName(id));
         }
 
         #region MethodInfoHelper
