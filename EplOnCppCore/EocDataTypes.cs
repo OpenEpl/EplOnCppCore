@@ -82,7 +82,7 @@ namespace QIQI.EplOnCpp.Core
                 EplSystemId.DecomposeLibDataTypeId(dataType, out var libId, out var typeId);
                 try
                 {
-                    if (P.Libs[libId].DataType[typeId].IsEnum)
+                    if (P.Libs[libId].DataTypes[typeId].Kind == OpenEpl.ELibInfo.ELibDataTypeKind.Enum)
                         return EplSystemId.DataType_Int;
                 }
                 catch (Exception)
@@ -90,7 +90,7 @@ namespace QIQI.EplOnCpp.Core
                 }
                 try
                 {
-                    if (P.EocLibs[libId].Enum.ContainsKey(P.Libs[libId].DataType[typeId].Name))
+                    if (P.EocLibs[libId].Enum.ContainsKey(P.Libs[libId].DataTypes[typeId].Name))
                         return EplSystemId.DataType_Int;
                 }
                 catch (Exception)
@@ -225,11 +225,11 @@ namespace QIQI.EplOnCpp.Core
                     {
                         return ErrorType;
                     }
-                    if (typeId >= P.Libs[libId].DataType.Length)
+                    if (typeId >= P.Libs[libId].DataTypes.Length)
                     {
                         return ErrorType;
                     }
-                    var name = P.Libs[libId].DataType[typeId].Name;
+                    var name = P.Libs[libId].DataTypes[typeId].Name;
                     if (P.EocLibs[libId] == null)
                     {
                         return ErrorType;

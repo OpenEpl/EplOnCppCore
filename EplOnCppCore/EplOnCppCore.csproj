@@ -28,8 +28,8 @@
 	  <PrivateAssets>all</PrivateAssets>
 	  <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
 	</PackageReference>
-	<PackageReference Include="QIQI.EProjectFile" Version="1.4.1" />
+	<PackageReference Include="QIQI.EProjectFile" Version="1.7.4" />
 	<PackageReference Include="QuikGraph" Version="2.5.0" />
-	<PackageReference Include="YamlDotNet" Version="11.2.1" />
+	<PackageReference Include="YamlDotNet" Version="12.0.0" />
   </ItemGroup>
 </Project>

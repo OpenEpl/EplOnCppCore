@@ -1,7 +1,7 @@
 ﻿using QIQI.EplOnCpp.Core.Utils;
 using QIQI.EProjectFile;
 using QIQI.EProjectFile.Expressions;
-using QIQI.EProjectFile.LibInfo;
+using OpenEpl.ELibInfo;
 using QIQI.EProjectFile.Sections;
 using QuikGraph;
 using System;
@@ -10,6 +10,7 @@ using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
 using System.Text;
+using OpenEpl.ELibInfo.Loader;
 
 namespace QIQI.EplOnCpp.Core
 {
@@ -28,7 +29,7 @@ namespace QIQI.EplOnCpp.Core
             new ProjectConverter(source, projectType, projectNamespace).Generate(dest);
         }
 
-        public LibInfo[] Libs { get; }
+        public ELibManifest[] Libs { get; }
         public ReadOnlyCollection<Dictionary<int, int>> LibCmdToDeclaringTypeMap { get; }
         public EocLibInfo[] EocLibs { get; }
         public int EocHelperLibId { get; }
@@ -87,7 +88,7 @@ namespace QIQI.EplOnCpp.Core
             this.MethodIdToClassMap = new Dictionary<int, ClassInfo>();
             foreach (var item in Code.Classes)
             {
-                Array.ForEach(item.Method, x => MethodIdToClassMap.Add(x, item));
+                foreach (var x in item.Methods) MethodIdToClassMap.Add(x, item);
             }
 
             projectNamespace = projectNamespace ?? "e::user";
@@ -102,7 +103,8 @@ namespace QIQI.EplOnCpp.Core
                 {
                     try
                     {
-                        return LibInfo.Load(x);
+                        Guid.TryParse(x.GuidString, out var guid);
+                        return ELibInfoLoader.Default.Load(guid, x.FileName, x.Version);
                     }
                     catch (Exception ex)
                     {
@@ -125,11 +127,12 @@ namespace QIQI.EplOnCpp.Core
                 }).ToArray();
             LibCmdToDeclaringTypeMap = Libs.Select(lib => {
                 var r = new Dictionary<int, int>();
-                for (int i = 0; i < lib?.DataType?.Length; i++)
+                var count = lib?.DataTypes.IsDefaultOrEmpty != false ? 0 : lib.DataTypes.Length;
+                for (int i = 0; i < count; i++)
                 {
-                    if (lib.DataType[i].Method != null)
+                    if (lib.DataTypes[i].Methods != null)
                     {
-                        Array.ForEach(lib.DataType[i].Method, x => r[x] = i);
+                        foreach (var x in lib.DataTypes[i].Methods) r[x] = i;
                     }
                 }
                 return r;
@@ -154,8 +157,8 @@ namespace QIQI.EplOnCpp.Core
                 .ToSortedDictionary();
 
             this.EocMethodMap =
-                this.EocObjectClassMap.Values.SelectMany(x => x.Method)
-                .Concat(this.EocStaticClassMap.Values.SelectMany(x => x.Method))
+                this.EocObjectClassMap.Values.SelectMany(x => x.Methods)
+                .Concat(this.EocStaticClassMap.Values.SelectMany(x => x.Methods))
                 .ToSortedDictionary();
 
             if (ProjectType == EocProjectType.Dll)
@@ -255,7 +258,7 @@ namespace QIQI.EplOnCpp.Core
             EocObjectClassMap = EocObjectClassMap.FilterSortedDictionary(x => Dependencies.Contains(x.Value.RefId));
             foreach (var x in EocObjectClassMap.Values) { x.RemoveUnusedCode(Dependencies); }
             foreach (var x in EocStaticClassMap.Values) { x.RemoveUnusedCode(Dependencies); }
-            EocStaticClassMap = EocStaticClassMap.FilterSortedDictionary(x => x.Value.Method.Count != 0);
+            EocStaticClassMap = EocStaticClassMap.FilterSortedDictionary(x => x.Value.Methods.Count != 0);
 
             //依赖信息
             File.WriteAllText(Path.Combine(dest, "Dependencies.txt"), string.Join("\r\n", this.Dependencies), Encoding.UTF8);
@@ -766,8 +769,8 @@ namespace QIQI.EplOnCpp.Core
                     return GetEocMemberInfo(structId, id);
 
                 default:
-                    var dataTypeInfo = Libs[libId].DataType[structId];
-                    var memberInfo = dataTypeInfo.Member[id];
+                    var dataTypeInfo = Libs[libId].DataTypes[structId];
+                    var memberInfo = dataTypeInfo.Members[id];
                     var eocMemberInfo = EocLibs[libId].Type[dataTypeInfo.Name].Member[memberInfo.Name];
                     return eocMemberInfo;
             }
@@ -780,8 +783,8 @@ namespace QIQI.EplOnCpp.Core
 
         public EocConstantInfo GetEocConstantInfo(EmnuConstantExpression expr)
         {
-            var dataTypeInfo = Libs[expr.LibraryId].DataType[expr.StructId];
-            var memberInfo = dataTypeInfo.Member[expr.MemberId];
+            var dataTypeInfo = Libs[expr.LibraryId].DataTypes[expr.StructId];
+            var memberInfo = dataTypeInfo.Members[expr.MemberId];
             EocConstantInfo result;
             try
             {
@@ -814,7 +817,7 @@ namespace QIQI.EplOnCpp.Core
                     return GetEocConstantInfo(id);
 
                 default:
-                    var name = Libs[libraryId].Constant[id].Name;
+                    var name = Libs[libraryId].Constants[id].Name;
                     EocConstantInfo result;
                     try
                     {
@@ -824,7 +827,7 @@ namespace QIQI.EplOnCpp.Core
                     {
                         result = new EocConstantInfo()
                         {
-                            Value = Libs[libraryId].Constant[id].Value
+                            Value = Libs[libraryId].Constants[id].Value
                         };
                         if (result.Value is long longValue)
                             if ((int)longValue == longValue)
@@ -868,14 +871,14 @@ namespace QIQI.EplOnCpp.Core
                     {
                         throw new Exception($"{Libs[libId].Name} 库缺少Eoc识别信息，可能是Eoc不支持该库或没有安装相应Eoc库");
                     }
-                    if (Libs[libId].Cmd.Length < id)
+                    if (Libs[libId].Cmds.Length < id)
                     {
                         throw new Exception($"fne信息中缺少命令信息，请检查版本是否匹配【Lib：{Libs[libId].Name}，CmdId：{id}】");
                     }
-                    var name = Libs[libId].Cmd[id].Name;
+                    var name = Libs[libId].Cmds[id].Name;
                     if (LibCmdToDeclaringTypeMap[libId].TryGetValue(id, out var typeId))
                     {
-                        var typeName = Libs[libId].DataType[typeId].Name;
+                        var typeName = Libs[libId].DataTypes[typeId].Name;
                         if (!EocLibs[libId].Type.TryGetValue(typeName, out var typeInfo))
                         {
                             throw new Exception($"{typeName} 类型缺少Eoc识别信息，可能是Eoc不支持该类型或没有安装相应Eoc库");

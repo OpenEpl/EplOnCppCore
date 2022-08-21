@@ -29,7 +29,7 @@ namespace QIQI.EplOnCpp.Core
             RawName = "raw_" + Name;
             RawCppName = $"{P.TypeNamespace}::eoc_internal::{RawName}";
             CppName = EocDataTypes.Translate(P, rawInfo.Id).ToString();
-            MemberInfoMap = RawInfo.Member.ToSortedDictionary(x => x.Id, x => new EocMemberInfo()
+            MemberInfoMap = RawInfo.Members.ToSortedDictionary(x => x.Id, x => new EocMemberInfo()
             {
                 CppName = P.GetUserDefinedName_SimpleCppName(x.Id),
                 DataType = EocDataTypes.Translate(P, x.DataType, x.UBound),
@@ -124,7 +124,7 @@ namespace QIQI.EplOnCpp.Core
         {
             using (writer.NewBlock())
             {
-                foreach (var member in RawInfo.Member)
+                foreach (var member in RawInfo.Members)
                 {
                     var memberCppName = P.GetUserDefinedName_SimpleCppName(member.Id);
                     writer.NewLine();
@@ -170,7 +170,7 @@ namespace QIQI.EplOnCpp.Core
             foreach (var item in map.Values)
             {
                 var hasDependentItem = false;
-                foreach (var member in item.RawInfo.Member)
+                foreach (var member in item.RawInfo.Members)
                 {
                     if (EplSystemId.GetType(member.DataType) == EplSystemId.Type_Struct
                         && map.TryGetValue(member.DataType, out var memberType))

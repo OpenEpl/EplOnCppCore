@@ -128,7 +128,7 @@ namespace QIQI.EplOnCpp.Core
 
         public void RemoveUnusedCode(HashSet<string> dependencies)
         {
-            MethodItem.Variables = MethodItem.Variables.Where(x => dependencies.Contains($"{RefId}|{P.GetUserDefinedName_SimpleCppName(x.Id)}")).ToArray();
+            MethodItem.Variables = MethodItem.Variables.Where(x => dependencies.Contains($"{RefId}|{P.GetUserDefinedName_SimpleCppName(x.Id)}")).ToList();
         }
 
         public void ParseCode()

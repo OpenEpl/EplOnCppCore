@@ -14,7 +14,7 @@ namespace QIQI.EplOnCpp.Core
         public ClassInfo RawInfo { get; }
         public string Name { get; }
         public string CppName { get; }
-        public SortedDictionary<int, CodeConverter> Method { get; set; }
+        public SortedDictionary<int, CodeConverter> Methods { get; set; }
         public SortedDictionary<int, EocMemberInfo> MemberInfoMap { get; set; }
 
         public abstract void AnalyzeDependencies(AdjacencyGraph<string, IEdge<string>> graph);
@@ -33,12 +33,12 @@ namespace QIQI.EplOnCpp.Core
             {
                 CppName = $"{P.CmdNamespace}::{Name}";
             }
-            Method = RawInfo.Method.Select(x => P.MethodIdMap[x]).ToSortedDictionary(x => x.Id, x => new CodeConverter(P, this, x));
+            Methods = RawInfo.Methods.Select(x => P.MethodIdMap[x]).ToSortedDictionary(x => x.Id, x => new CodeConverter(P, this, x));
         }
 
         public void ParseCode()
         {
-            foreach (var item in Method.Values)
+            foreach (var item in Methods.Values)
             {
                 item.ParseCode();
             }
@@ -46,10 +46,10 @@ namespace QIQI.EplOnCpp.Core
 
         public void Optimize()
         {
-            var keys = Method.Keys.ToList();
+            var keys = Methods.Keys.ToList();
             foreach (var id in keys)
             {
-                Method[id] = Method[id].Optimize();
+                Methods[id] = Methods[id].Optimize();
             }
         }
     }

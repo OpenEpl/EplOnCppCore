@@ -26,11 +26,11 @@ namespace QIQI.EplOnCpp.Core
             writer.Write("#include \"../type.h\"");
             using (writer.NewNamespace(P.CmdNamespace))
             {
-                foreach (var item in Method.Values)
+                foreach (var item in Methods.Values)
                 {
                     item.DefineItem(writer);
                 }
-                foreach (var item in Method.Values)
+                foreach (var item in Methods.Values)
                 {
                     if (item.TemplatedMethod)
                     {
@@ -47,7 +47,7 @@ namespace QIQI.EplOnCpp.Core
                 var varRefId = x.CppName;
                 P.AnalyzeDependencies(graph, varRefId, x.DataType);
             }
-            foreach (var x in Method.Values)
+            foreach (var x in Methods.Values)
             {
                 x.AnalyzeDependencies(graph);
             }
@@ -56,8 +56,8 @@ namespace QIQI.EplOnCpp.Core
         public override void RemoveUnusedCode(HashSet<string> dependencies)
         {
             MemberInfoMap = MemberInfoMap.FilterSortedDictionary(x => dependencies.Contains(x.Value.CppName));
-            Method = Method.FilterSortedDictionary(x => dependencies.Contains(x.Value.RefId));
-            foreach (var item in Method.Values)
+            Methods = Methods.FilterSortedDictionary(x => dependencies.Contains(x.Value.RefId));
+            foreach (var item in Methods.Values)
             {
                 item.RemoveUnusedCode(dependencies);
             }
@@ -75,7 +75,7 @@ namespace QIQI.EplOnCpp.Core
                         P.DefineVariable(writer, new string[] { "static" }, MemberInfoMap.Values);
                     }
                 }
-                foreach (var item in Method.Values)
+                foreach (var item in Methods.Values)
                 {
                     if (!item.TemplatedMethod)
                     {

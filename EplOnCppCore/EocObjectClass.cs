@@ -51,7 +51,7 @@ namespace QIQI.EplOnCpp.Core
                 graph.AddVerticesAndEdge(new Edge<string>(RefId, varRefId));
                 P.AnalyzeDependencies(graph, varRefId, x.DataType);
             }
-            foreach (var x in Method.Values)
+            foreach (var x in Methods.Values)
             {
                 graph.AddVerticesAndEdge(new Edge<string>(RefId, x.RefId));
                 x.AnalyzeDependencies(graph);
@@ -60,7 +60,7 @@ namespace QIQI.EplOnCpp.Core
 
         public override void RemoveUnusedCode(HashSet<string> dependencies)
         {
-            foreach (var item in Method.Values)
+            foreach (var item in Methods.Values)
             {
                 item.RemoveUnusedCode(dependencies);
             }
@@ -109,7 +109,7 @@ namespace QIQI.EplOnCpp.Core
                 writer.Write($"virtual ~{RawName}();");
                 writer.NewLine();
                 writer.Write($"virtual e::system::basic_object* __stdcall clone();");
-                foreach (var item in Method.Values)
+                foreach (var item in Methods.Values)
                 {
                     item.DefineItem(writer);
                 }
@@ -122,8 +122,8 @@ namespace QIQI.EplOnCpp.Core
             writer.Write("#include \"../../../stdafx.h\"");
             using (writer.NewNamespace(P.TypeNamespace))
             {
-                var initMethod = Method.Values.Where(x => x.MethodItem.Name == "_初始化").FirstOrDefault();
-                var destroyMethod = Method.Values.Where(x => x.MethodItem.Name == "_销毁").FirstOrDefault();
+                var initMethod = Methods.Values.Where(x => x.MethodItem.Name == "_初始化").FirstOrDefault();
+                var destroyMethod = Methods.Values.Where(x => x.MethodItem.Name == "_销毁").FirstOrDefault();
                 using (writer.NewNamespace("eoc_internal"))
                 {
                     writer.NewLine();
@@ -163,7 +163,7 @@ namespace QIQI.EplOnCpp.Core
                         writer.Write($"return new {RawName}(*this);");
                     }
 
-                    foreach (var item in Method.Values)
+                    foreach (var item in Methods.Values)
                     {
                         item.ImplementNormalItem(writer);
                     }
